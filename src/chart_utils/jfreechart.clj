@@ -44,7 +44,8 @@
   (.addDomainMarker plot 
     (doto (IntervalMarker. x y) 
       (.setLabel label) 
-      (.setPaint (Color. 233  194  166)))))
+      (.setPaint (Color. 233  194  166)))
+    org.jfree.ui.Layer/BACKGROUND))
 
 (defmethod add-domain-interval-marker JFreeChart [chart x y label]
   (add-domain-interval-marker (.getPlot chart) x y label))
