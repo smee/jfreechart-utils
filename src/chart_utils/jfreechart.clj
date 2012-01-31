@@ -267,3 +267,11 @@ Like incanter.charts/sliders* but creates on frame that contains all sliders.
 						    :x-label x-lab# 
 						    :y-label y-lab#]))))]
        (apply heat-map* args#))))
+
+(defn combined-domain-plot 
+  "Combine several XYPlots into one plot with a common domain axis (all charts in one column)."
+  [& plots]
+  (let [axis (.. (first plots) getPlot getDomainAxis)
+        combined-plot (org.jfree.chart.plot.CombinedDomainXYPlot. axis)]
+    (doseq [p plots] (.add combined-plot p))
+    combined-plot))
