@@ -14,6 +14,44 @@
     [javax.swing JFrame JLabel JPanel JSlider BoxLayout]
     java.awt.BorderLayout))
 
+;;;;;;;;;; color scale functions ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defn magnification 
+  "Magnification. See http://www.caida.org/~youngh/colorscales/nonlinear.html.
+x is in [0,1], alpha should vary between -1 and 1, and a good range for beta is [0.5, 5.5]."
+  [x alpha beta]
+  (/ 1 (Math/pow (Math/cosh (* beta (+ alpha (dec (* 2 x))))) 2)))
+(defn transformation [x alpha beta]
+  (/ (Math/tanh (* beta (+ alpha (dec (* 2 x))))) beta))
+
+(comment
+  (let [x (range 0 1.05 0.025)
+      chart (doto (ch/xy-plot x (repeat 0)) 
+              (ch/add-lines x (repeat 0))
+              ic/view)] 
+  (cjf/sliders [alpha (range -1 1.025 0.025)
+                beta (range 0.5 6 0.1)]
+               (let [t-min (transformation (apply min x) alpha beta)
+                     t-max (transformation (apply max x) alpha beta)] 
+                 (println [t-min t-max])
+                 (ic/set-data chart [x (map #(magnification % alpha beta) x)] 0)
+                 (ic/set-data chart [x (map #(/ (- (transformation % alpha beta) t-min) (- t-max t-min)) x)] 1))))
+  )
+
+(defn interpolate-color 
+  "Create function that interpolates linearly between two colors. The resulting function returns valid values for x in [0,1]."
+  [[r1 g1 b1] [r2 g2 b2]]
+  (let [dr (- r2 r1)
+        dg (- g2 g1)
+        db (- b2 b1)]
+    (fn [x]
+      [(int (+ r1 (* x dr)))
+       (int (+ g1 (* x dg)))
+       (int (+ b1 (* x db)))])))
+
+#_(defn create-color-scale [& val-col-pairs]
+  (interpolate-color (second (first val-col-pairs)) (second (second val-col-pairs))))
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defmulti add-domain-marker "Mark a domain value with line and label" (fn [x & _] (class x)))
 
@@ -195,8 +233,8 @@ Like incanter.charts/sliders* but creates on frame that contains all sliders.
 	   xyz-dataset (org.jfree.data.xy.DefaultXYZDataset.)
 	   data (into-array (map double-array 
 				 (grid-apply function x-min x-max y-min y-max x-step y-step)))
-	   min-z (reduce min (last data))
-	   max-z (reduce max (last data))
+	   min-z (or (:z-min opts) (reduce min (last data)))
+	   max-z (or (:z-max opts) (reduce max (last data)))
 	   x-axis (doto (org.jfree.chart.axis.NumberAxis. x-label)
 		    (.setStandardTickUnits (org.jfree.chart.axis.NumberAxis/createIntegerTickUnits))
 		    (.setLowerMargin 0.0)
@@ -210,17 +248,16 @@ Like incanter.charts/sliders* but creates on frame that contains all sliders.
 		    (.setAxisLinePaint java.awt.Color/white)
 		    (.setTickMarkPaint java.awt.Color/white))
 	   colors (or (:colors opts) 
-		      [[0 0 127] [0 0 212] [0 42 255] [0 127 255] [0 127 255] 
-		       [0 226 255] [42 255 212] [56 255 198] [255 212 0] [255 198 0]
-		       [255 169 0] [255 112 0] [255 56 0] [255 14 0] [255 42 0]
-		       [226 0 0]])
+		      (map vector
+             (range min-z max-z (/ (- max-z min-z) 16)) ;; FIXME 16 is the number of colors given
+             (map (fn [[r g b]] (java.awt.Color. r g b)) 
+                  [[0 0 127] [0 0 212] [0 42 255] [0 127 255] [0 127 255] 
+                   [0 226 255] [42 255 212] [56 255 198] [255 212 0] [255 198 0]
+                   [255 169 0] [255 112 0] [255 56 0] [255 14 0] [255 42 0]
+                   [226 0 0]])))
 	   scale (if color?
-		   (org.jfree.chart.renderer.LookupPaintScale. min-z max-z java.awt.Color/white)
-		   (org.jfree.chart.renderer.GrayPaintScale. min-z max-z))
-	   add-color (fn [idx color]
-		       (.add scale 
-			     (+ min-z (* (/ idx (count colors)) (- max-z min-z))) 
-			     (apply #(java.awt.Color. %1 %2 %3) color)))
+            (org.jfree.chart.renderer.LookupPaintScale. min-z max-z java.awt.Color/pink)
+            (org.jfree.chart.renderer.GrayPaintScale. min-z max-z))
 	   scale-axis (org.jfree.chart.axis.NumberAxis. z-label)
 	   legend (org.jfree.chart.title.PaintScaleLegend. scale scale-axis)
 	   renderer (org.jfree.chart.renderer.xy.XYBlockRenderer.)
@@ -229,8 +266,8 @@ Like incanter.charts/sliders* but creates on frame that contains all sliders.
 	   chart (org.jfree.chart.JFreeChart. plot)]
        (do
 	(.setPaintScale renderer scale)
-	(when color? (doseq [i (range (count colors))]
-		       (add-color i (nth colors i))))
+	(when color? (doseq [[i color] colors]
+		       (.add scale i color)))
 	(.addSeries xyz-dataset "Series 1" data)
 	(.setBackgroundPaint plot java.awt.Color/lightGray)
 	(.setDomainGridlinesVisible plot false)
@@ -255,7 +292,7 @@ Like incanter.charts/sliders* but creates on frame that contains all sliders.
 
 (defmacro heat-map
   "see incanter.charts/heat-map for examples
-   Takes optional parameters :x-step and :y-step for x and y resolutions."
+   Takes optional parameters :x-step and :y-step for x and y resolutions and :z-min :z-max for min./max. values of z."
   ([function x-min x-max y-min y-max & options]
     `(let [opts# ~(when options (apply assoc {} options))
            x-lab# (or (:x-label opts#) (format "%s < x < %s" '~x-min '~x-max))
