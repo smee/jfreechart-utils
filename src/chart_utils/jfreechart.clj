@@ -312,3 +312,11 @@ Like incanter.charts/sliders* but creates on frame that contains all sliders.
         combined-plot (org.jfree.chart.plot.CombinedDomainXYPlot. axis)]
     (doseq [p plots] (.add combined-plot p))
     combined-plot))
+
+(defn set-y-ranges 
+  "Set y range for all available y-axes."
+  [chart lower upper]
+  (let [plot (.. chart getPlot)] 
+    (dotimes [i (.getRangeAxisCount plot)]
+      (.. plot getRangeAxis (setRange lower upper))))
+  chart)
