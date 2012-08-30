@@ -147,7 +147,7 @@ Like incanter.charts/sliders* but returns the JSlider object only.
                                      (do
                                        (.setText label (label-txt value))
                                        (updater-fn value)))))))] 
-    (.setValue slider (/ max-idx 2))
+    ;(.setValue slider (/ max-idx 2))
     (doto (JPanel. (BorderLayout.))
       (.add label BorderLayout/NORTH)
       (.add slider BorderLayout/CENTER)))))
@@ -157,7 +157,7 @@ Like incanter.charts/sliders* but returns the JSlider object only.
 (defn sliders*
 "sliders*
 
-Like incanter.charts/sliders* but creates on frame that contains all sliders.
+Like incanter.charts/sliders* but creates one frame that contains all sliders.
 
 "
   ([f [& slider-values]]
