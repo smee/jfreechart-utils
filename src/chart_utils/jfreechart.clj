@@ -56,7 +56,7 @@ x is in [0,1], alpha should vary between -1 and 1, and a good range for beta is 
 (defmulti add-domain-marker "Mark a domain value with line and label" (fn [x & _] (class x)))
 
 (defmethod add-domain-marker JFreeChart [chart x label]
-  (add-domain-marker (.getPlot chart)))
+  (add-domain-marker (.getPlot chart) x label))
 
 (defmethod add-domain-marker org.jfree.chart.plot.CombinedDomainXYPlot [plot x label]
   (doseq [p (.getSubplots plot)]
