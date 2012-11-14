@@ -125,6 +125,10 @@ x is in [0,1], alpha should vary between -1 and 1, and a good range for beta is 
 #_(defn add-deviation-plot [chart ys ylows yhighs]
   ;; use deviationrenderer, yintervalseries
   )
+(defn add-sub-title 
+  "Add a subtitle to the chart."
+  [chart text]
+  (.addSubTitle chart (org.jfree.chart.title.TextTitle. text)))
 
 ;;;;;;;;;;;;;;; dynamic charts with multiple sliders in one jframe ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defn slider 
@@ -320,3 +324,5 @@ Like incanter.charts/sliders* but creates one frame that contains all sliders.
     (dotimes [i (.getRangeAxisCount plot)]
       (.. plot getRangeAxis (setRange lower upper))))
   chart)
+
+;;;;;;;;;;;;;;;;;; Deviation Plots ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
