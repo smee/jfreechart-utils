@@ -325,4 +325,8 @@ Like incanter.charts/sliders* but creates one frame that contains all sliders.
       (.. plot getRangeAxis (setRange lower upper))))
   chart)
 
-;;;;;;;;;;;;;;;;;; Deviation Plots ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(defn set-discontinuous [chart]
+  (let [r (doto (org.jfree.chart.renderer.xy.StandardXYItemRenderer.) (.setPlotDiscontinuous true))
+        p (.getPlot chart)] 
+    (dotimes [n (.getRendererCount p)]
+      (.setRenderer p n r))))
