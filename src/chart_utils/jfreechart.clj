@@ -326,7 +326,11 @@ Like incanter.charts/sliders* but creates one frame that contains all sliders.
   chart)
 
 (defn set-discontinuous [chart]
-  (let [r (doto (org.jfree.chart.renderer.xy.StandardXYItemRenderer.) (.setPlotDiscontinuous true))
+  (let [new-renderer (fn [old-renderer] 
+                       (let [p (.getSeriesPaint old-renderer 0)]
+                         (doto (org.jfree.chart.renderer.xy.StandardXYItemRenderer.) 
+                           (.setSeriesPaint 0 p)
+                           (.setPlotDiscontinuous true))))
         p (.getPlot chart)] 
     (dotimes [n (.getRendererCount p)]
-      (.setRenderer p n r))))
+      (.setRenderer p n (new-renderer (.getRenderer p n))))))
