@@ -21,6 +21,7 @@
 x is in [0,1], alpha should vary between -1 and 1, and a good range for beta is [0.5, 5.5]."
   [x alpha beta]
   (/ 1 (Math/pow (Math/cosh (* beta (+ alpha (dec (* 2 x))))) 2)))
+
 (defn transformation [x alpha beta]
   (/ (Math/tanh (* beta (+ alpha (dec (* 2 x))))) beta))
 
@@ -49,8 +50,33 @@ x is in [0,1], alpha should vary between -1 and 1, and a good range for beta is 
        (int (+ g1 (* x dg)))
        (int (+ b1 (* x db)))])))
 
-#_(defn create-color-scale [& val-col-pairs]
-  (interpolate-color (second (first val-col-pairs)) (second (second val-col-pairs))))
+(defn create-color-scale [& val-col-pairs]
+  (let [indices (map first val-col-pairs)
+        min (apply min indices)
+        max (apply max indices)
+        val-col-pairs (partition 2 1 (sort-by first val-col-pairs))] 
+    (fn [x]
+      (if-let [pair (some #(when (<= (ffirst %) x (first (second %))) %) val-col-pairs)] 
+        (let [[[from [r1 g1 b1]] [to [r2 g2 b2]]] pair
+              scaled-x (/ (- x from) (- to from))
+              dr (- r2 r1)
+              dg (- g2 g1)
+              db (- b2 b1)]
+          [(int (+ r1 (* scaled-x dr)))
+           (int (+ g1 (* scaled-x dg)))
+           (int (+ b1 (* scaled-x db)))])
+        (-> val-col-pairs last second second)))))
+
+(defn tripel2color [[r g b]]
+  (java.awt.Color. r g b))
+
+(defn fixed-color-scale [color-scale values]
+  (map #(vector % (tripel2color (color-scale %))) values))
+(comment 
+  (let [f (create-color-scale [0 [0 0 0]] [10 [255 0 0]] [20 [0 255 255]])]
+    (map (comp tripel2color f) (range 21))
+    (fixed-color-scale f (range 21))))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defmulti add-domain-marker "Mark a domain value with line and label" (fn [x & _] (class x)))
