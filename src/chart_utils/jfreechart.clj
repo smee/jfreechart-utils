@@ -27,16 +27,16 @@ x is in [0,1], alpha should vary between -1 and 1, and a good range for beta is 
 
 (comment
   (let [x (range 0 1.05 0.025)
-      chart (doto (ch/xy-plot x (repeat 0)) 
-              (ch/add-lines x (repeat 0))
-              ic/view)] 
-  (cjf/sliders [alpha (range -1 1.025 0.025)
+      chart (doto (incanter.charts/xy-plot x (repeat 0)) 
+              (incanter.charts/add-lines x (repeat 0))
+              incanter.core/view)] 
+  (sliders [alpha (range -1 1.025 0.025)
                 beta (range 0.5 6 0.1)]
                (let [t-min (transformation (apply min x) alpha beta)
                      t-max (transformation (apply max x) alpha beta)] 
                  (println [t-min t-max])
-                 (ic/set-data chart [x (map #(magnification % alpha beta) x)] 0)
-                 (ic/set-data chart [x (map #(/ (- (transformation % alpha beta) t-min) (- t-max t-min)) x)] 1))))
+                 (incanter.core/set-data chart [x (map #(magnification % alpha beta) x)] 0)
+                 (incanter.core/set-data chart [x (map #(/ (- (transformation % alpha beta) t-min) (- t-max t-min)) x)] 1))))
   )
 
 (defn interpolate-color 
@@ -286,7 +286,7 @@ Like incanter.charts/sliders* but creates one frame that contains all sliders.
                    [255 169 0] [255 112 0] [255 56 0] [255 14 0] [255 42 0]
                    [226 0 0]])))
 	   scale (if color?
-            (org.jfree.chart.renderer.LookupPaintScale. min-z max-z java.awt.Color/pink)
+            (org.jfree.chart.renderer.LookupPaintScale. min-z max-z java.awt.Color/cyan)
             (org.jfree.chart.renderer.GrayPaintScale. min-z max-z))
 	   scale-axis (org.jfree.chart.axis.NumberAxis. z-label)
 	   legend (org.jfree.chart.title.PaintScaleLegend. scale scale-axis)
