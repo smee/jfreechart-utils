@@ -1,7 +1,7 @@
 (ns chart-utils.jfreechart
   (:import
     java.awt.Color
-    org.jfree.chart.JFreeChart
+    [org.jfree.chart JFreeChart ChartPanel ChartFrame]
     org.jfree.chart.axis.DateAxis
     org.jfree.chart.axis.SegmentedTimeline
     org.jfree.chart.plot.IntervalMarker
@@ -113,6 +113,12 @@ x is in [0,1], alpha should vary between -1 and 1, and a good range for beta is 
 
 (defmethod add-domain-interval-marker JFreeChart [chart x y label]
   (add-domain-interval-marker (.getPlot chart) x y label))
+
+(defmethod add-domain-interval-marker ChartPanel [chart x y label]
+  (add-domain-interval-marker (.. chart getChart getPlot) x y label)) 
+
+(defmethod add-domain-interval-marker ChartFrame [chart x y label]
+  (add-domain-interval-marker (.. chart getChartPanel getChart getPlot) x y label))
 
 (defmethod add-domain-interval-marker org.jfree.chart.plot.CombinedDomainXYPlot [plot x y label]
   (doseq [p (.getSubplots plot)]
