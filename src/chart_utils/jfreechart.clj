@@ -77,6 +77,19 @@ x is in [0,1], alpha should vary between -1 and 1, and a good range for beta is 
     (map (comp tripel2color f) (range 21))
     (fixed-color-scale f (range 21))))
 
+;;;;;;;;;;;;;;;; experiments with colors and color scales ;;;;;;;;;;;;;;;;;;
+(defn color-distance 
+  "Natural color distance metric, see http:;www.compuphase.com/cmetric.htm"
+  [^Color c1 ^Color c2]
+  (let [rmean (* 0.5 (+ (.getRed c1) (.getRed c2)))
+        r (- (.getRed c1) (.getRed c2))
+        g (- (.getGreen c1) (.getGreen c2))
+        b (- (.getBlue c1) (.getBlue c2))
+        weight-r (+ 2 (/ rmean 256))
+        weight-g 4.0
+        weight-b (+ 2 (/ (- 255 rmean) 256))]
+    (Math/sqrt (+ (* weight-r r r) (* weight-g g g) (* weight-b b b)))))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defmulti add-domain-marker "Mark a domain value with line and label" (fn [x & _] (class x)))
