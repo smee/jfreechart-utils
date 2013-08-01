@@ -72,6 +72,7 @@ x is in [0,1], alpha should vary between -1 and 1, and a good range for beta is 
 
 (defn fixed-color-scale [color-scale values]
   (map #(vector % (tripel2color (color-scale %))) values))
+
 (comment 
   (let [f (create-color-scale [0 [0 0 0]] [10 [255 0 0]] [20 [0 255 255]])]
     (map (comp tripel2color f) (range 21))
@@ -260,13 +261,32 @@ Like incanter.charts/sliders* but creates one frame that contains all sliders.
   and z calculated by applying f to the combinations of x and y with step widths
   x-step and y-step."
   ([f x-min x-max y-min y-max x-step y-step]
-     (let [x-vals (range x-min x-max (/ (- x-max x-min) x-step))
-           y-vals (range y-min y-max (/ (- y-max y-min) y-step))
-           xyz (for [_x x-vals _y y-vals] [_x _y (f _x _y)])
+     (let [x-vals (range x-min x-max (/ (- x-max x-min) x-step)) 
+           y-vals (range y-min y-max (/ (- y-max y-min) y-step)) 
+           xyz (for [_x x-vals _y y-vals] [_x _y (f _x _y)]) 
            transpose #(list (conj (first %1) (first %2))
                             (conj (second %1) (second %2))
                             (conj (nth %1 2) (nth %2 2)))]
        (reduce transpose [[] [] []] xyz))))
+
+(defn create-3d-dataset [^"[[D" data label]
+  (doto (org.jfree.data.xy.DefaultXYZDataset.)
+    (.addSeries label data)))
+
+(defn create-paint-scale [colors min-z max-z ^java.awt.Color default-color]
+  {:pre [(every? number? (map first colors)) (every? (partial instance? java.awt.Color) (map second colors))]}
+  (let [scale (org.jfree.chart.renderer.LookupPaintScale. min-z max-z default-color)]
+    (doseq [[i color] colors]
+      (.add scale i color))
+    scale))
+
+(defn set-paint-scale [chart scale]
+  (let [r (.. chart getPlot getRenderer)
+        l (.. chart getSubtitles (get 0))] 
+    (when (instance? org.jfree.chart.renderer.xy.XYBlockRenderer r) 
+      (.setPaintScale r scale))
+    (when (instance? org.jfree.chart.title.PaintScaleLegend l) 
+      (.setScale l scale))))
 
 (defn heat-map*
   ([function x-min x-max y-min y-max & options]
@@ -279,9 +299,9 @@ Like incanter.charts/sliders* but creates one frame that contains all sliders.
      x-step (or (:x-step opts) 100)
      y-step (or (:y-step opts) 100)
 	   theme (or (:theme opts) :default)
-	   xyz-dataset (org.jfree.data.xy.DefaultXYZDataset.)
 	   data (into-array (map double-array 
 				 (grid-apply function x-min x-max y-min y-max x-step y-step)))
+	   xyz-dataset (create-3d-dataset data "Series 1") 
 	   min-z (or (:z-min opts) (reduce min (last data)))
 	   max-z (or (:z-max opts) (reduce max (last data)))
 	   x-axis (doto (org.jfree.chart.axis.NumberAxis. x-label)
@@ -305,7 +325,7 @@ Like incanter.charts/sliders* but creates one frame that contains all sliders.
                    [255 169 0] [255 112 0] [255 56 0] [255 14 0] [255 42 0]
                    [226 0 0]])))
 	   scale (if color?
-            (org.jfree.chart.renderer.LookupPaintScale. min-z max-z java.awt.Color/cyan)
+            (create-paint-scale colors min-z max-z java.awt.Color/cyan)
             (org.jfree.chart.renderer.GrayPaintScale. min-z max-z))
 	   scale-axis (org.jfree.chart.axis.NumberAxis. z-label)
 	   legend (org.jfree.chart.title.PaintScaleLegend. scale scale-axis)
@@ -315,9 +335,6 @@ Like incanter.charts/sliders* but creates one frame that contains all sliders.
 	   chart (org.jfree.chart.JFreeChart. plot)]
        (do
 	(.setPaintScale renderer scale)
-	(when color? (doseq [[i color] colors]
-		       (.add scale i color)))
-	(.addSeries xyz-dataset "Series 1" data)
 	(.setBackgroundPaint plot java.awt.Color/lightGray)
 	(.setDomainGridlinesVisible plot false)
 	(.setRangeGridlinePaint plot java.awt.Color/white)
