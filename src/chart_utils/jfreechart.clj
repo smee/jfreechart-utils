@@ -288,6 +288,13 @@ Like incanter.charts/sliders* but creates one frame that contains all sliders.
     (when (instance? org.jfree.chart.title.PaintScaleLegend l) 
       (.setScale l scale))))
 
+(defn set-heatmap-data [chart ^org.jfree.data.xy.DefaultXYZDataset data]
+  (let [ds (.. chart getPlot getDataset)
+        sk (.getSeriesKey ds 0)]
+    (doto ds 
+      (.removeSeries sk)
+      (.addSeries sk data)))) 
+
 (defn heat-map*
   ([function x-min x-max y-min y-max & options]
      (let [opts (when options (apply assoc {} options))
