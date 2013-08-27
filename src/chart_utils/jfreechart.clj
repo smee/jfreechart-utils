@@ -212,7 +212,7 @@ Like incanter.charts/sliders* but creates one frame that contains all sliders.
 "
   ([f [& slider-values]]
      (sliders* f (apply vector slider-values) [nil]))
-  ([f [& slider-values] [& slider-labels]]
+  ([f [& slider-values] [& slider-labels]] 
     (let [init-values (map first slider-values)
           refs (map ref init-values)
           slider-fns (map #(fn [v] 
@@ -288,7 +288,7 @@ Like incanter.charts/sliders* but creates one frame that contains all sliders.
     (when (instance? org.jfree.chart.title.PaintScaleLegend l) 
       (.setScale l scale))))
 
-(defn set-heatmap-data [chart ^org.jfree.data.xy.DefaultXYZDataset data]
+(defn set-heat-map-data [chart ^org.jfree.data.xy.DefaultXYZDataset data]
   (let [ds (.. chart getPlot getDataset)
         sk (.getSeriesKey ds 0)]
     (doto ds 
@@ -342,6 +342,8 @@ Like incanter.charts/sliders* but creates one frame that contains all sliders.
 	   chart (org.jfree.chart.JFreeChart. plot)]
        (do
 	(.setPaintScale renderer scale)
+  (.setBlockWidth renderer (/ (- x-max x-min) x-step))
+  (.setBlockHeight renderer (/ (- y-max y-min) y-step))
 	(.setBackgroundPaint plot java.awt.Color/lightGray)
 	(.setDomainGridlinesVisible plot false)
 	(.setRangeGridlinePaint plot java.awt.Color/white)
@@ -358,6 +360,8 @@ Like incanter.charts/sliders* but creates one frame that contains all sliders.
 	(.setPosition legend org.jfree.ui.RectangleEdge/RIGHT)
 	(.setTitle chart title)
 	(.addSubtitle chart legend)
+  (.. chart getPlot getDomainAxis (setRange x-min x-max))
+  (.setRange y-axis y-min y-max)
 	(org.jfree.chart.ChartUtilities/applyCurrentTheme chart)
 	#_(set-theme chart theme))
        chart)))
@@ -377,6 +381,58 @@ Like incanter.charts/sliders* but creates one frame that contains all sliders.
 						    :x-label x-lab# 
 						    :y-label y-lab#]))))]
        (apply heat-map* args#))))
+
+(defn bin-fn 
+  "Create a function that returns the interval that a value x falls in.
+Example:  
+    ((bin-fn 0 10 2) 5.5) 
+    => [4 6]"
+  [min max step] 
+  (let [steps (partition 2 1 (range min max step))] 
+    (fn [v] (let [bin-start (int (/ (- v min) step))] 
+              [(+ min (* bin-start step)) (+ min (* (inc bin-start) step))]))))
+
+(defn- map-values 
+  "Change all values or all keys and values by applying a function to each of them."
+  ([vf m] (map-values identity vf m))
+  ([kf vf m]
+  (into {} (for [[k v] m] [(kf k) (vf v)]))))
+
+(defn ->bins [x-min x-bin-width y-min y-bin-width bin-w bin-p]
+  (fn [xs ys] 
+    (->> (map vector xs ys)
+      (sort-by first)
+      (partition-by #(int (/ (- (first %) x-min) x-bin-width)))
+      (reduce #(assoc % (bin-w (ffirst %2)) %2) {}) 
+      (map-values 
+        (fn [bin] (->> bin 
+                    (sort-by second)
+                    (partition-by #(int (/ (- (second %) y-min) y-bin-width)))
+                    (reduce #(assoc % (bin-p (second (first %2))) %2) {})
+                    (map-values count))))
+      time)))
+
+(defn heat-map-function [xs ys min-x max-x min-y max-y x-steps y-steps]
+  (let [x-bin-width (double (/ (- max-x min-x) x-steps))
+        y-bin-width (double (/ (- max-y min-y) y-steps))
+        bin-x (bin-fn min-x max-x x-bin-width)
+        bin-y (bin-fn min-y max-y y-bin-width)
+        bins ((->bins min-x x-bin-width min-y y-bin-width bin-x bin-y) xs ys)] (def bins bins)
+    (fn [x y]
+      (if-let [v (get-in bins [(bin-x x) (bin-y y)])] v 0))))
+
+(defn heat-map-data 
+  "Create the data needed for calling `chart-utils.jfreechart/set-heatmap-data.
+For details please refer to `chart-utils.jfreechart/heat-map`"
+  [xs ys x-min x-max y-min y-max x-step y-step]
+  (let [f (heat-map-function xs ys x-min x-max y-min y-max x-step y-step)]
+    (into-array 
+      (map double-array 
+           (grid-apply f x-min x-max y-min y-max x-step y-step)))))
+(comment 
+  (doto (heat-map (heatmap-function (range 100) (take 100 (cycle (range 10))) 100 100) 
+          0 10 0 10 :x-step 100 :y-step 100)
+    incanter.core/view))
 
 (defn combined-domain-plot 
   "Combine several XYPlots into one plot with a common domain axis (all charts in one column)."
@@ -403,3 +459,20 @@ Like incanter.charts/sliders* but creates one frame that contains all sliders.
         p (.getPlot chart)] 
     (dotimes [n (.getRendererCount p)]
       (.setRenderer p n (new-renderer (.getRenderer p n))))))
+
+(defn map-to-axis 
+  "Map dataseries to separate y axis. Reuses fonts, colors, paints from the first axis."
+  [chart series-idx axis-idx]
+  (let [p (.getPlot chart)
+        a0 (.. p (getRangeAxis 0)) 
+        axis-count (.getRangeAxisCount p)
+        axis (or (.getRangeAxis p axis-idx) (doto (org.jfree.chart.axis.NumberAxis.)
+                                              (.setLabelFont (.getLabelFont a0)) 
+                                              (.setTickLabelFont (.getTickLabelFont a0)) 
+                                              (.setLabelPaint (.getLabelPaint a0))
+                                              (.setAxisLinePaint (.getAxisLinePaint a0))
+                                              (.setTickLabelPaint (.getTickLabelPaint a0))))]
+    
+    (when (not= axis (.getRangeAxis p axis-idx)) 
+      (.setRangeAxis p axis-idx axis))
+    (.mapDatasetToRangeAxis p series-idx axis-idx)))
