@@ -409,8 +409,7 @@ Example:
                     (sort-by second)
                     (partition-by #(int (/ (- (second %) y-min) y-bin-width)))
                     (reduce #(assoc % (bin-p (second (first %2))) %2) {})
-                    (map-values count))))
-      time)))
+                    (map-values count)))))))
 
 (defn heat-map-function [xs ys min-x max-x min-y max-y x-steps y-steps]
   (let [x-bin-width (double (/ (- max-x min-x) x-steps))
@@ -459,6 +458,11 @@ For details please refer to `chart-utils.jfreechart/heat-map`"
         p (.getPlot chart)] 
     (dotimes [n (.getRendererCount p)]
       (.setRenderer p n (new-renderer (.getRenderer p n))))))
+
+(defn set-step-renderer 
+  "Set an instance of `org.jfree.chart.renderer.xy.XYStepRenderer` for data series `n`."
+  [chart n]
+  (.. chart getPlot (setRenderer n (org.jfree.chart.renderer.xy.XYStepRenderer.))))
 
 (defn map-to-axis 
   "Map dataseries to separate y axis. Reuses fonts, colors, paints from the first axis."
