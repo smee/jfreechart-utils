@@ -393,6 +393,18 @@ For details please refer to `chart-utils.jfreechart/heat-map`"
     (doseq [p plots] (.add combined-plot p))
     combined-plot))
 
+(defn combined-domain-chart
+  [charts & {:keys [keep-titles] :or {keep-titles true}}]
+  (let [plots (mapv (memfn getPlot) charts)
+        titles (mapv (memfn getTitle) charts)]
+    (if keep-titles
+      (doseq [chart charts 
+              :let [title (.getTitle chart)
+                    plot (.getPlot chart)]
+              :when title]
+        (.addAnnotation plot (org.jfree.chart.annotations.XYTitleAnnotation. 0.5 0.95 title))))
+    (org.jfree.chart.JFreeChart. (apply combined-domain-plot plots))))
+
 (defn set-y-ranges 
   "Set y range for all available y-axes."
   [chart lower upper]
