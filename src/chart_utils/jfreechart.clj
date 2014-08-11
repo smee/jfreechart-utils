@@ -14,82 +14,6 @@
     [javax.swing JFrame JLabel JPanel JSlider BoxLayout]
     java.awt.BorderLayout))
 
-;;;;;;;;;; color scale functions ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(defn magnification 
-  "Magnification. See http://www.caida.org/~youngh/colorscales/nonlinear.html.
-x is in [0,1], alpha should vary between -1 and 1, and a good range for beta is [0.5, 5.5]."
-  [x alpha beta]
-  (/ 1 (Math/pow (Math/cosh (* beta (+ alpha (dec (* 2 x))))) 2)))
-
-(defn transformation [x alpha beta]
-  (/ (Math/tanh (* beta (+ alpha (dec (* 2 x))))) beta))
-
-(comment
-  (let [x (range 0 1.05 0.025)
-      chart (doto (incanter.charts/xy-plot x (repeat 0)) 
-              (incanter.charts/add-lines x (repeat 0))
-              incanter.core/view)] 
-  (sliders [alpha (range -1 1.025 0.025)
-                beta (range 0.5 6 0.1)]
-               (let [t-min (transformation (apply min x) alpha beta)
-                     t-max (transformation (apply max x) alpha beta)] 
-                 (println [t-min t-max])
-                 (incanter.core/set-data chart [x (map #(magnification % alpha beta) x)] 0)
-                 (incanter.core/set-data chart [x (map #(/ (- (transformation % alpha beta) t-min) (- t-max t-min)) x)] 1))))
-  )
-
-(defn interpolate-color 
-  "Create function that interpolates linearly between two colors. The resulting function returns valid values for x in [0,1]."
-  [[r1 g1 b1] [r2 g2 b2]]
-  (let [dr (- r2 r1)
-        dg (- g2 g1)
-        db (- b2 b1)]
-    (fn [x]
-      [(int (+ r1 (* x dr)))
-       (int (+ g1 (* x dg)))
-       (int (+ b1 (* x db)))])))
-
-(defn create-color-scale [& val-col-pairs]
-  (let [indices (map first val-col-pairs)
-        min (apply min indices)
-        max (apply max indices)
-        val-col-pairs (partition 2 1 (sort-by first val-col-pairs))] 
-    (fn [x]
-      (if-let [pair (some #(when (<= (ffirst %) x (first (second %))) %) val-col-pairs)] 
-        (let [[[from [r1 g1 b1]] [to [r2 g2 b2]]] pair
-              scaled-x (/ (- x from) (- to from))
-              dr (- r2 r1)
-              dg (- g2 g1)
-              db (- b2 b1)]
-          [(int (+ r1 (* scaled-x dr)))
-           (int (+ g1 (* scaled-x dg)))
-           (int (+ b1 (* scaled-x db)))])
-        (-> val-col-pairs last second second)))))
-
-(defn tripel2color [[r g b]]
-  (java.awt.Color. r g b))
-
-(defn fixed-color-scale [color-scale values]
-  (map #(vector % (tripel2color (color-scale %))) values))
-
-(comment 
-  (let [f (create-color-scale [0 [0 0 0]] [10 [255 0 0]] [20 [0 255 255]])]
-    (map (comp tripel2color f) (range 21))
-    (fixed-color-scale f (range 21))))
-
-;;;;;;;;;;;;;;;; experiments with colors and color scales ;;;;;;;;;;;;;;;;;;
-(defn color-distance 
-  "Natural color distance metric, see http:;www.compuphase.com/cmetric.htm"
-  [^Color c1 ^Color c2]
-  (let [rmean (* 0.5 (+ (.getRed c1) (.getRed c2)))
-        r (- (.getRed c1) (.getRed c2))
-        g (- (.getGreen c1) (.getGreen c2))
-        b (- (.getBlue c1) (.getBlue c2))
-        weight-r (+ 2 (/ rmean 256))
-        weight-g 4.0
-        weight-b (+ 2 (/ (- 255 rmean) 256))]
-    (Math/sqrt (+ (* weight-r r r) (* weight-g g g) (* weight-b b b)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -233,7 +157,8 @@ Like incanter.charts/sliders* but creates one frame that contains all sliders.
       (doto frame
         (.setDefaultCloseOperation JFrame/DISPOSE_ON_CLOSE)
         (.add panel BorderLayout/CENTER)
-        (.setSize width height)
+;        (.setSize width height)
+        (.pack) 
         (.setVisible true))
       frame)))
 
@@ -448,7 +373,7 @@ For details please refer to `chart-utils.jfreechart/heat-map`"
       (map double-array 
            (grid-apply f x-min x-max y-min y-max x-step y-step)))))
 (comment 
-  (doto (heat-map (heatmap-function (range 100) (take 100 (cycle (range 10))) 100 100) 
+  (doto (heat-map (heat-map-function (range 100) (take 100 (cycle (range 10))) 0 10 0 10 100 100) 
           0 10 0 10 :x-step 100 :y-step 100)
     incanter.core/view))
 
@@ -457,6 +382,14 @@ For details please refer to `chart-utils.jfreechart/heat-map`"
   [& plots]
   (let [axis (if plots (.getDomainAxis (first plots)) (org.jfree.chart.axis.NumberAxis. ""))
         combined-plot (org.jfree.chart.plot.CombinedDomainXYPlot. axis)]
+    (doseq [p plots] (.add combined-plot p))
+    combined-plot))
+
+(defn combined-range-plot 
+  "Combine several XYPlots into one plot with a common range axis (all charts in one row)."
+  [& plots]
+  (let [axis (org.jfree.chart.axis.NumberAxis. "")
+        combined-plot (org.jfree.chart.plot.CombinedRangeXYPlot. axis)]
     (doseq [p plots] (.add combined-plot p))
     combined-plot))
 
@@ -499,3 +432,30 @@ For details please refer to `chart-utils.jfreechart/heat-map`"
     (when (not= axis (.getRangeAxis p axis-idx)) 
       (.setRangeAxis p axis-idx axis))
     (.mapDatasetToRangeAxis p series-idx axis-idx)))
+
+(defn- get-series
+  "get-series"
+  ([chart]
+    (-> chart .getPlot .getDataset .getSeries))
+  ([chart series-idx]
+    (first (seq (-> chart
+                  .getPlot
+                  (.getDataset series-idx)
+                  .getSeries)))))
+
+(defn perf-set-data 
+  "Replace the data of a series without firing events for every single data point
+by avoiding `addOrUpdate`."
+  [chart data series-idx]
+    (let [series (get-series chart series-idx)]
+       (.clear series)
+       (cond
+         (= 2 (count (first data)))
+           (doseq [row data]
+             (.add series (first row) (second row) false))
+         (= 2 (count data))
+           (dorun (map #(.add series %1 %2 false) (first data) (second data)))
+         :else
+           (throw (Exception. "Data has wrong number of dimensions")))
+       (.fireSeriesChanged series) 
+       chart))
