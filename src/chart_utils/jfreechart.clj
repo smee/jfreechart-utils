@@ -2,12 +2,14 @@
   (:import
     java.awt.Color
     [org.jfree.chart JFreeChart ChartPanel ChartFrame]
+    [org.jfree.data.xy YIntervalSeries YIntervalSeriesCollection YIntervalDataItem]
     org.jfree.chart.axis.DateAxis
     org.jfree.chart.axis.SegmentedTimeline
     org.jfree.chart.plot.IntervalMarker
     org.jfree.chart.plot.ValueMarker
     org.jfree.chart.plot.XYPlot
     org.jfree.chart.renderer.xy.StandardXYItemRenderer
+    org.jfree.chart.renderer.xy.DeviationRenderer
     org.jfree.chart.util.RelativeDateFormat
     org.jfree.util.UnitType
     java.text.DecimalFormat
@@ -471,3 +473,27 @@ by avoiding `addOrUpdate`."
            (throw (Exception. "Data has wrong number of dimensions")))
        (.fireSeriesChanged series) 
        chart))
+
+(defn deviation-plot 
+  "Create xy-plot of xs and vs, render minima and maxima as an area behind the line."
+  [xs vs lower upper & {:keys [series-label legend x-label y-label title]
+                        :or {legend false :series-label "" title "Chart"
+                             x-label "x" y-label "y"}}]
+  (let [series (YIntervalSeries. "foo")
+        collection (doto (YIntervalSeriesCollection.) (.addSeries series))
+        _ (doseq [[x y l u] (map vector xs vs lower upper)] 
+            (.add series x y l u))
+        show-lines true
+        show-shapes false
+        renderer (DeviationRenderer. show-lines show-shapes)
+        chart (org.jfree.chart.ChartFactory/createXYLineChart
+                title 
+                x-label 
+                y-label 
+                collection
+                org.jfree.chart.plot.PlotOrientation/VERTICAL
+                false
+                false
+                false)]
+    (.. chart getPlot (setRenderer renderer))
+    chart))
