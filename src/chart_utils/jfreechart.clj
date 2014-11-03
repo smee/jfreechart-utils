@@ -26,7 +26,7 @@
 
 (defmethod add-domain-marker org.jfree.chart.plot.CombinedDomainXYPlot [plot x label]
   (doseq [p (.getSubplots plot)]
-    (add-domain-marker p x label)))
+      (add-domain-marker p x label)))
 
 (defmethod add-domain-marker XYPlot [plot x label]
   (.addDomainMarker plot 
@@ -35,12 +35,15 @@
       (.setPaint Color/RED))))
 
 
-(defn add-value-marker [chart y label]
-  (.addRangeMarker (.getPlot chart) 
-    (doto (ValueMarker. y) 
-      (.setLabel label) 
-      (.setPaint Color/BLACK))
-    org.jfree.ui.Layer/BACKGROUND))
+(defn add-value-marker [chart y label & [idx]]
+  (let [idx (or idx 0)
+        layer org.jfree.ui.Layer/BACKGROUND] 
+    (.addRangeMarker (.getPlot chart)
+      idx
+      (doto (ValueMarker. y) 
+        (.setLabel label) 
+        (.setPaint Color/BLACK))
+      org.jfree.ui.Layer/BACKGROUND)))
 
 (defmulti add-domain-interval-marker (fn [x & _] (class x)))
 
@@ -93,6 +96,15 @@
     (.setPlotDiscontinuous true)
     (.setGapThresholdType UnitType/RELATIVE)
     (.setGapThreshold 3.0)))
+
+(defn set-plot-discontinuous 
+  "If there are more than 3 missing values in a series, 
+do not connect points at this gap. Creates new renderers for the given series!
+If no series index is given, do this for all series of the plot."
+  ([^org.jfree.chart.plot.XYPlot plot] (dotimes [i (.getRendererCount plot)] 
+                                         (set-plot-discontinuous plot i))) 
+  ([^org.jfree.chart.plot.XYPlot plot idx] 
+    (.setRenderer plot idx (create-renderer))))
 
 #_(defn add-deviation-plot [chart ys ylows yhighs]
   ;; use deviationrenderer, yintervalseries
