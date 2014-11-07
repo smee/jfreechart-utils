@@ -17,7 +17,7 @@
     java.awt.BorderLayout))
 
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;; Add and remove markers ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defmulti add-domain-marker "Mark a domain value with line and label" (fn [x & _] (class x)))
 
@@ -29,30 +29,51 @@
       (add-domain-marker p x label)))
 
 (defmethod add-domain-marker XYPlot [plot x label]
-  (.addDomainMarker plot 
-    (doto (ValueMarker. x) 
-      (.setLabel label) 
-      (.setPaint Color/RED))))
+  (let [marker (doto (ValueMarker. x) 
+                 (.setLabel label) 
+                 (.setPaint Color/RED))] 
+    (.addDomainMarker plot marker)
+    marker))
 
+(defmethod add-domain-marker XYPlot [plot x label]
+  (let [marker (doto (ValueMarker. x) 
+                 (.setLabel label) 
+                 (.setPaint Color/RED))] 
+    (.addDomainMarker plot marker)
+    marker))
+
+(defmulti remove-domain-marker "Mark a domain value with line and label" (fn [x marker] (class x)))
+
+(defmethod remove-domain-marker JFreeChart [chart marker]
+  (remove-domain-marker (.getPlot chart) marker))
+
+(defmethod remove-domain-marker org.jfree.chart.plot.CombinedDomainXYPlot [plot marker]
+  (doseq [p (.getSubplots plot)]
+      (remove-domain-marker p marker)))
+
+(defmethod remove-domain-marker XYPlot [plot marker]
+  (.removeDomainMarker plot marker))
 
 (defn add-value-marker [chart y label & [idx]]
   (let [idx (or idx 0)
-        layer org.jfree.ui.Layer/BACKGROUND] 
+        layer org.jfree.ui.Layer/BACKGROUND
+        marker (doto (ValueMarker. y) 
+                 (.setLabel label) 
+                 (.setPaint Color/BLACK))] 
     (.addRangeMarker (.getPlot chart)
       idx
-      (doto (ValueMarker. y) 
-        (.setLabel label) 
-        (.setPaint Color/BLACK))
-      org.jfree.ui.Layer/BACKGROUND)))
+      marker
+      layer)
+    marker))
 
 (defmulti add-domain-interval-marker (fn [x & _] (class x)))
 
 (defmethod add-domain-interval-marker XYPlot [plot x y label]
-  (.addDomainMarker plot 
-    (doto (IntervalMarker. x y) 
-      (.setLabel label) 
-      (.setPaint (Color. 233  194  166)))
-    org.jfree.ui.Layer/BACKGROUND))
+  (let [marker (doto (IntervalMarker. x y) 
+                 (.setLabel label) 
+                 (.setPaint (Color. 233  194  166)))] 
+    (.addDomainMarker plot marker org.jfree.ui.Layer/BACKGROUND)
+    marker))
 
 (defmethod add-domain-interval-marker JFreeChart [chart x y label]
   (add-domain-interval-marker (.getPlot chart) x y label))
@@ -67,6 +88,24 @@
   (doseq [p (.getSubplots plot)]
     (add-domain-interval-marker p x y label)))
 
+(defmulti remove-domain-interval-marker (fn [x marker] (class x)))
+
+(defmethod remove-domain-interval-marker XYPlot [plot marker]
+  (.removeDomainMarker plot marker org.jfree.ui.Layer/BACKGROUND))
+
+(defmethod remove-domain-interval-marker JFreeChart [chart marker]
+  (remove-domain-interval-marker (.getPlot chart) marker))
+
+(defmethod remove-domain-interval-marker ChartPanel [chart marker]
+  (remove-domain-interval-marker (.. chart getChart getPlot) marker)) 
+
+(defmethod remove-domain-interval-marker ChartFrame [chart marker]
+  (remove-domain-interval-marker (.. chart getChartPanel getChart getPlot) marker))
+
+(defmethod remove-domain-interval-marker org.jfree.chart.plot.CombinedDomainXYPlot [plot marker]
+  (doseq [p (.getSubplots plot)]
+    (remove-domain-interval-marker p marker)))
+ 
 
 (defn use-relative-time-axis 
   "Replace domain axis by relative date/time axis."
