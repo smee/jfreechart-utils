@@ -5,12 +5,14 @@
     [org.jfree.data.xy YIntervalSeries YIntervalSeriesCollection YIntervalDataItem]
     org.jfree.chart.axis.DateAxis
     org.jfree.chart.axis.SegmentedTimeline
+    org.jfree.chart.plot.CombinedDomainXYPlot
     org.jfree.chart.plot.IntervalMarker
     org.jfree.chart.plot.ValueMarker
     org.jfree.chart.plot.XYPlot
     org.jfree.chart.renderer.xy.StandardXYItemRenderer
     org.jfree.chart.renderer.xy.DeviationRenderer
     org.jfree.chart.util.RelativeDateFormat
+    org.jfree.chart.plot.DefaultDrawingSupplier
     org.jfree.util.UnitType
     java.text.DecimalFormat
     [javax.swing JFrame JLabel JPanel JSlider BoxLayout]
@@ -24,7 +26,7 @@
 (defmethod add-domain-marker JFreeChart [chart x label]
   (add-domain-marker (.getPlot chart) x label))
 
-(defmethod add-domain-marker org.jfree.chart.plot.CombinedDomainXYPlot [plot x label]
+(defmethod add-domain-marker CombinedDomainXYPlot [plot x label]
   (doseq [p (.getSubplots plot)]
       (add-domain-marker p x label)))
 
@@ -42,17 +44,22 @@
     (.addDomainMarker plot marker)
     marker))
 
-(defmulti remove-domain-marker "Mark a domain value with line and label" (fn [x marker] (class x)))
+(defmulti remove-domain-marker 
+  "Mark a domain value with line and label" 
+  (fn [x marker] (class x)))
 
 (defmethod remove-domain-marker JFreeChart [chart marker]
-  (remove-domain-marker (.getPlot chart) marker))
+  (remove-domain-marker (.getPlot chart) marker)
+  chart)
 
-(defmethod remove-domain-marker org.jfree.chart.plot.CombinedDomainXYPlot [plot marker]
+(defmethod remove-domain-marker CombinedDomainXYPlot [plot marker]
   (doseq [p (.getSubplots plot)]
-      (remove-domain-marker p marker)))
+      (remove-domain-marker p marker))
+  plot)
 
 (defmethod remove-domain-marker XYPlot [plot marker]
-  (.removeDomainMarker plot marker))
+  (.removeDomainMarker plot marker)
+  plot)
 
 (defn add-value-marker [chart y label & [idx]]
   (let [idx (or idx 0)
@@ -66,7 +73,9 @@
       layer)
     marker))
 
-(defmulti add-domain-interval-marker (fn [x & _] (class x)))
+(defmulti add-domain-interval-marker 
+  "Add new domain marker for an interval. Returns newly created marker."
+  (fn [x & _] (class x)))
 
 (defmethod add-domain-interval-marker XYPlot [plot x y label]
   (let [marker (doto (IntervalMarker. x y) 
@@ -84,27 +93,32 @@
 (defmethod add-domain-interval-marker ChartFrame [chart x y label]
   (add-domain-interval-marker (.. chart getChartPanel getChart getPlot) x y label))
 
-(defmethod add-domain-interval-marker org.jfree.chart.plot.CombinedDomainXYPlot [plot x y label]
+(defmethod add-domain-interval-marker CombinedDomainXYPlot [plot x y label]
   (doseq [p (.getSubplots plot)]
     (add-domain-interval-marker p x y label)))
 
 (defmulti remove-domain-interval-marker (fn [x marker] (class x)))
 
 (defmethod remove-domain-interval-marker XYPlot [plot marker]
-  (.removeDomainMarker plot marker org.jfree.ui.Layer/BACKGROUND))
+  (.removeDomainMarker plot marker org.jfree.ui.Layer/BACKGROUND)
+  plot)
 
 (defmethod remove-domain-interval-marker JFreeChart [chart marker]
-  (remove-domain-interval-marker (.getPlot chart) marker))
+  (remove-domain-interval-marker (.getPlot chart) marker)
+  chart)
 
 (defmethod remove-domain-interval-marker ChartPanel [chart marker]
-  (remove-domain-interval-marker (.. chart getChart getPlot) marker)) 
+  (remove-domain-interval-marker (.. chart getChart getPlot) marker)
+  chart) 
 
 (defmethod remove-domain-interval-marker ChartFrame [chart marker]
-  (remove-domain-interval-marker (.. chart getChartPanel getChart getPlot) marker))
+  (remove-domain-interval-marker (.. chart getChartPanel getChart getPlot) marker)
+  chart)
 
-(defmethod remove-domain-interval-marker org.jfree.chart.plot.CombinedDomainXYPlot [plot marker]
+(defmethod remove-domain-interval-marker CombinedDomainXYPlot [plot marker]
   (doseq [p (.getSubplots plot)]
-    (remove-domain-interval-marker p marker)))
+    (remove-domain-interval-marker p marker))
+  plot)
  
 
 (defn use-relative-time-axis 
@@ -114,7 +128,8 @@
                (.setSecondFormatter (DecimalFormat. "00"))
                (.setShowZeroDays false))
         axis (doto (DateAxis.) (.setDateFormatOverride rdf))]
-    (.setDomainAxis plot axis)))
+    (.setDomainAxis plot axis)
+    plot))
 
 (defn use-time-axis 
   "Use DateAxis. If a start- and end-hour are specified only these hours will be shown."
@@ -124,9 +139,11 @@
           timeline (doto (SegmentedTimeline. one-hour hours (- 24 hours))
                      (.setStartTime (+ (* start-hour one-hour) (SegmentedTimeline/firstMondayAfter1900))))
           axis (doto (DateAxis.) (.setTimeline timeline))]
-      (.setDomainAxis plot axis)))
+      (.setDomainAxis plot axis)
+      plot))
   ([plot]
-    (.setDomainAxis plot (DateAxis.))))
+    (.setDomainAxis plot (DateAxis.))
+    plot))
 
 (defn create-renderer
   "do not plot a line when at least 3 values are missing (for example during the night)" 
@@ -143,7 +160,8 @@ If no series index is given, do this for all series of the plot."
   ([^org.jfree.chart.plot.XYPlot plot] (dotimes [i (.getRendererCount plot)] 
                                          (set-plot-discontinuous plot i))) 
   ([^org.jfree.chart.plot.XYPlot plot idx] 
-    (.setRenderer plot idx (create-renderer))))
+    (.setRenderer plot idx (create-renderer))
+    plot))
 
 #_(defn add-deviation-plot [chart ys ylows yhighs]
   ;; use deviationrenderer, yintervalseries
@@ -151,7 +169,8 @@ If no series index is given, do this for all series of the plot."
 (defn add-sub-title 
   "Add a subtitle to the chart."
   [chart text]
-  (.addSubTitle chart (org.jfree.chart.title.TextTitle. text)))
+  (.addSubTitle chart (org.jfree.chart.title.TextTitle. text))
+  chart)
 
 ;;;;;;;;;;;;;;; dynamic charts with multiple sliders in one jframe ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defn slider 
@@ -264,14 +283,16 @@ Like incanter.charts/sliders* but creates one frame that contains all sliders.
     (when (instance? org.jfree.chart.renderer.xy.XYBlockRenderer r) 
       (.setPaintScale r scale))
     (when (instance? org.jfree.chart.title.PaintScaleLegend l) 
-      (.setScale l scale))))
+      (.setScale l scale))
+    chart))
 
 (defn set-heat-map-data [chart ^org.jfree.data.xy.DefaultXYZDataset data]
   (let [ds (.. chart getPlot getDataset)
         sk (.getSeriesKey ds 0)]
     (doto ds 
       (.removeSeries sk)
-      (.addSeries sk data)))) 
+      (.addSeries sk data))
+    chart)) 
 
 (defn heat-map*
   ([function x-min x-max y-min y-max & options]
@@ -434,7 +455,7 @@ For details please refer to `chart-utils.jfreechart/heat-map`"
   "Combine several XYPlots into one plot with a common domain axis (all charts in one column)."
   [& plots]
   (let [axis (if plots (.getDomainAxis (first plots)) (org.jfree.chart.axis.NumberAxis. ""))
-        combined-plot (org.jfree.chart.plot.CombinedDomainXYPlot. axis)]
+        combined-plot (CombinedDomainXYPlot. axis)]
     (doseq [p plots] (.add combined-plot p))
     combined-plot))
 
@@ -474,12 +495,14 @@ For details please refer to `chart-utils.jfreechart/heat-map`"
                            (.setPlotDiscontinuous true))))
         p (.getPlot chart)] 
     (dotimes [n (.getRendererCount p)]
-      (.setRenderer p n (new-renderer (.getRenderer p n))))))
+      (.setRenderer p n (new-renderer (.getRenderer p n))))
+    chart))
 
 (defn set-step-renderer 
   "Set an instance of `org.jfree.chart.renderer.xy.XYStepRenderer` for data series `n`."
   [chart n]
-  (.. chart getPlot (setRenderer n (org.jfree.chart.renderer.xy.XYStepRenderer.))))
+  (.. chart getPlot (setRenderer n (org.jfree.chart.renderer.xy.XYStepRenderer.)))
+  chart)
 
 (defn map-to-axis 
   "Map dataseries to separate y axis. Reuses fonts, colors, paints from the first axis."
@@ -496,7 +519,8 @@ For details please refer to `chart-utils.jfreechart/heat-map`"
     
     (when (not= axis (.getRangeAxis p axis-idx)) 
       (.setRangeAxis p axis-idx axis))
-    (.mapDatasetToRangeAxis p series-idx axis-idx)))
+    (.mapDatasetToRangeAxis p series-idx axis-idx)
+    chart))
 
 (defn- get-series
   "get-series"
@@ -548,3 +572,38 @@ by avoiding `addOrUpdate`."
                 false)]
     (.. chart getPlot (setRenderer renderer))
     chart))
+
+(defmulti set-color-brewer-colors class)
+(defmethod set-color-brewer-colors JFreeChart [chart]
+  (set-color-brewer-colors (.getPlot chart))
+  chart)
+
+(defmethod set-color-brewer-colors org.jfree.chart.plot.Plot [plot]
+  (let [brewer [(Color. 0x1f 0x77 0xb4)
+                (Color. 0xae 0xc7 0xe8)
+                (Color. 0xff 0x7f 0x0e)
+                (Color. 0xff 0xbb 0x78)
+                (Color. 0x2c 0xa0 0x2c)
+                (Color. 0x98 0xdf 0x8a)
+                (Color. 0xd6 0x27 0x28)
+                (Color. 0xff 0x98 0x96)
+                (Color. 0x94 0x67 0xbd)
+                (Color. 0xc5 0xb0 0xd5)
+                (Color. 0x8c 0x56 0x4b)
+                (Color. 0xc4 0x9c 0x94)
+                (Color. 0xe3 0x77 0xc2)
+                (Color. 0xf7 0xb6 0xd2)
+                (Color. 0x7f 0x7f 0x7f)
+                (Color. 0xc7 0xc7 0xc7)
+                (Color. 0xbc 0xbd 0x22)
+                (Color. 0xdb 0xdb 0x8d)
+                (Color. 0x17 0xbe 0xcf)
+                (Color. 0x9e 0xda 0xe5)]
+        orig-array DefaultDrawingSupplier/DEFAULT_PAINT_SEQUENCE] 
+    (.setDrawingSupplier plot
+      (DefaultDrawingSupplier. (into-array (concat brewer orig-array))
+                               DefaultDrawingSupplier/DEFAULT_OUTLINE_PAINT_SEQUENCE,
+                               DefaultDrawingSupplier/DEFAULT_STROKE_SEQUENCE,
+                               DefaultDrawingSupplier/DEFAULT_OUTLINE_STROKE_SEQUENCE
+                               DefaultDrawingSupplier/DEFAULT_SHAPE_SEQUENCE))
+    plot))
