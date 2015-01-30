@@ -2,15 +2,16 @@
   (:import
     java.awt.Color
     [org.jfree.chart JFreeChart ChartPanel ChartFrame]
-    [org.jfree.data.xy YIntervalSeries YIntervalSeriesCollection YIntervalDataItem]
+    [org.jfree.data.xy 
+     YIntervalSeries YIntervalSeriesCollection YIntervalDataItem
+     XYSeries XYSeriesCollection]
     org.jfree.chart.axis.DateAxis
     org.jfree.chart.axis.SegmentedTimeline
     org.jfree.chart.plot.CombinedDomainXYPlot
     org.jfree.chart.plot.IntervalMarker
     org.jfree.chart.plot.ValueMarker
     org.jfree.chart.plot.XYPlot
-    org.jfree.chart.renderer.xy.StandardXYItemRenderer
-    org.jfree.chart.renderer.xy.DeviationRenderer
+    [org.jfree.chart.renderer.xy StandardXYItemRenderer DeviationRenderer XYLineAndShapeRenderer]
     org.jfree.chart.util.RelativeDateFormat
     org.jfree.chart.plot.DefaultDrawingSupplier
     org.jfree.util.UnitType
@@ -434,7 +435,7 @@ Example:
         y-bin-width (double (/ (- max-y min-y) y-steps))
         bin-x (bin-fn min-x max-x x-bin-width)
         bin-y (bin-fn min-y max-y y-bin-width)
-        bins ((->bins min-x x-bin-width min-y y-bin-width bin-x bin-y) xs ys)] (def bins bins)
+        bins ((->bins min-x x-bin-width min-y y-bin-width bin-x bin-y) xs ys)]
     (fn [x y]
       (if-let [v (get-in bins [(bin-x x) (bin-y y)])] v 0))))
 
@@ -551,16 +552,25 @@ by avoiding `addOrUpdate`."
 
 (defn deviation-plot 
   "Create xy-plot of xs and vs, render minima and maxima as an area behind the line."
-  [xs vs lower upper & {:keys [series-label legend x-label y-label title]
-                        :or {legend false :series-label "" title "Chart"
-                             x-label "x" y-label "y"}}]
-  (let [series (YIntervalSeries. "foo")
+  [xs vs lower upper & {:keys [series-label legend x-label y-label title fill-color-fn]
+                        :or {legend false 
+                             series-label "" 
+                             title "Chart"
+                             x-label "x" 
+                             y-label "y"
+                             fill-color-fn (fn [^Color col] (.brighter col))}}]
+  (let [series (YIntervalSeries. series-label)
         collection (doto (YIntervalSeriesCollection.) (.addSeries series))
         _ (doseq [[x y l u] (map vector xs vs lower upper)] 
             (.add series x y l u))
         show-lines true
         show-shapes false
-        renderer (DeviationRenderer. show-lines show-shapes)
+        renderer (doto 
+                   (proxy [DeviationRenderer] [show-lines show-shapes]
+                     (getSeriesFillPaint [series]
+                       (fill-color-fn (proxy-super getSeriesPaint series))))
+                   (.setAutoPopulateSeriesFillPaint true))
+        
         chart (org.jfree.chart.ChartFactory/createXYLineChart
                 title 
                 x-label 
@@ -599,11 +609,47 @@ by avoiding `addOrUpdate`."
                 (Color. 0xdb 0xdb 0x8d)
                 (Color. 0x17 0xbe 0xcf)
                 (Color. 0x9e 0xda 0xe5)]
-        orig-array DefaultDrawingSupplier/DEFAULT_PAINT_SEQUENCE] 
+        orig-array DefaultDrawingSupplier/DEFAULT_PAINT_SEQUENCE
+        colors (concat brewer orig-array)] 
     (.setDrawingSupplier plot
-      (DefaultDrawingSupplier. (into-array (concat brewer orig-array))
+      (DefaultDrawingSupplier. (into-array colors)
                                DefaultDrawingSupplier/DEFAULT_OUTLINE_PAINT_SEQUENCE,
                                DefaultDrawingSupplier/DEFAULT_STROKE_SEQUENCE,
                                DefaultDrawingSupplier/DEFAULT_OUTLINE_STROKE_SEQUENCE
                                DefaultDrawingSupplier/DEFAULT_SHAPE_SEQUENCE))
     plot))
+
+(comment
+  (defn polar-plot [angles values & {:keys [series-label title legend] 
+                                   :or {series-label "values"
+                                        title "Polar chart"
+                                        legend false}}]
+  (let [dataset (org.jfree.data.xy.XYSeriesCollection.)
+        series (org.jfree.data.xy.XYSeries. series-label)]
+    (.addSeries dataset series)
+    (doseq [[angle value] (map vector angles values)]
+      (.add series angle value false))
+    (org.jfree.chart.ChartFactory/createPolarChart 
+      title
+      dataset
+      legend
+      false
+      false)))
+
+(defn simple-add-lines 
+  "Extracted and adjusted from incanter.charts"
+  [chart x y & options]
+     (let [opts (when options (apply assoc {} options))
+           data-plot (.getPlot chart)
+           n (.getDatasetCount data-plot)
+           series-lab (:series-label opts)
+           data-series (org.jfree.data.xy.XYSeries. series-lab (:auto-sort opts true))
+           data-set (.getDataset data-plot)]
+       (dorun
+        (map (fn [x y]
+               (if (and (not (nil? x))
+                        (not (nil? y)))
+                 (.add data-series (double x) (double y) false)))
+             x y))
+      (.addSeries data-set data-series)
+      chart)))
