@@ -558,19 +558,18 @@ by avoiding `addOrUpdate`."
                              title "Chart"
                              x-label "x" 
                              y-label "y"
-                             fill-color-fn (fn [^Color col] (.brighter col))}}]
+                             fill-color-fn (fn fill-color-fn [^Color col] (.brighter col))}}] 
   (let [series (YIntervalSeries. series-label)
         collection (doto (YIntervalSeriesCollection.) (.addSeries series))
-        _ (doseq [[x y l u] (map vector xs vs lower upper)] 
+        _ (doseq [[x y l u] (map vector xs vs lower upper)]  
             (.add series x y l u))
         show-lines true
         show-shapes false
         renderer (doto 
                    (proxy [DeviationRenderer] [show-lines show-shapes]
                      (getSeriesFillPaint [series]
-                       (fill-color-fn (proxy-super getSeriesPaint series))))
+                       (fill-color-fn (proxy-super lookupSeriesPaint series))))
                    (.setAutoPopulateSeriesFillPaint true))
-        
         chart (org.jfree.chart.ChartFactory/createXYLineChart
                 title 
                 x-label 
@@ -619,6 +618,35 @@ by avoiding `addOrUpdate`."
                                DefaultDrawingSupplier/DEFAULT_SHAPE_SEQUENCE))
     plot))
 
+
+(defn stacked-area-chart
+  ([xs values & options]
+    (let [opts (when options (apply assoc {} options))
+          title (or (:title opts) "")
+          x-label (or (:x-label opts) "xs")
+          y-label (or (:y-label opts) "values")
+          series-labels (or (:series-labels opts) (vec (map str (range (count values)))))
+          legend? (true? (:legend opts))
+          dataset (org.jfree.data.xy.DefaultTableXYDataset.)
+          chart (org.jfree.chart.ChartFactory/createStackedXYAreaChart
+                  title
+                  x-label
+                  y-label
+                  dataset
+                  org.jfree.chart.plot.PlotOrientation/VERTICAL
+                  legend?
+                  true
+                  false)]
+      (do
+        (doseq [i (range 0 (count values)) 
+                :let [lbl (nth series-labels i)
+                      ds (XYSeries. lbl false false)
+                      vs (nth values i)]]
+          (doseq [[x y] (map vector xs vs)]
+            (.add ds x y false))
+          (.addSeries dataset ds))
+          ;(set-theme chart theme)
+          chart))))
 (comment
   (defn polar-plot [angles values & {:keys [series-label title legend] 
                                    :or {series-label "values"
