@@ -19,48 +19,33 @@
     [javax.swing JFrame JLabel JPanel JSlider BoxLayout]
     java.awt.BorderLayout))
 
+(defmulti get-plots "Extract all instances of org.jfree.chart.XYPlot" class)
 
+(defmethod get-plots CombinedDomainXYPlot [^CombinedDomainXYPlot c]
+  (mapcat get-plots (.getSubplots c)))
+
+(defmethod get-plots XYPlot [^XYPlot c]
+  [c])
+(defmethod get-plots ChartPanel [^ChartPanel c]
+  (get-plots (.getChart c)))
+
+(defmethod get-plots JFreeChart [^JFreeChart c]
+  (get-plots (.getPlot c)))
 ;;;;;;;;;;;;;;;;;; Add and remove markers ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defmulti add-domain-marker "Mark a domain value with line and label" (fn [x & _] (class x)))
 
-(defmethod add-domain-marker JFreeChart [chart x label]
-  (add-domain-marker (.getPlot chart) x label))
-
-(defmethod add-domain-marker CombinedDomainXYPlot [plot x label]
-  (doseq [p (.getSubplots plot)]
-      (add-domain-marker p x label)))
-
-(defmethod add-domain-marker XYPlot [plot x label]
+(defn add-domain-marker [chart x label]
   (let [marker (doto (ValueMarker. x) 
                  (.setLabel label) 
-                 (.setPaint Color/RED))] 
-    (.addDomainMarker plot marker)
+                 (.setPaint Color/RED))]
+    (doseq [plot (get-plots chart)] 
+      (.addDomainMarker plot marker))    
     marker))
 
-(defmethod add-domain-marker XYPlot [plot x label]
-  (let [marker (doto (ValueMarker. x) 
-                 (.setLabel label) 
-                 (.setPaint Color/RED))] 
-    (.addDomainMarker plot marker)
-    marker))
-
-(defmulti remove-domain-marker 
-  "Mark a domain value with line and label" 
-  (fn [x marker] (class x)))
-
-(defmethod remove-domain-marker JFreeChart [chart marker]
-  (remove-domain-marker (.getPlot chart) marker)
+(defn remove-domain-marker [chart marker]
+  (doseq [plot (get-plots chart)]
+    (.removeDomainMarker plot marker)) 
   chart)
-
-(defmethod remove-domain-marker CombinedDomainXYPlot [plot marker]
-  (doseq [p (.getSubplots plot)]
-      (remove-domain-marker p marker))
-  plot)
-
-(defmethod remove-domain-marker XYPlot [plot marker]
-  (.removeDomainMarker plot marker)
-  plot)
 
 (defn add-value-marker [chart y label & [idx]]
   (let [idx (or idx 0)
@@ -68,83 +53,49 @@
         marker (doto (ValueMarker. y) 
                  (.setLabel label) 
                  (.setPaint Color/BLACK))] 
-    (.addRangeMarker (.getPlot chart)
-      idx
-      marker
-      layer)
+    (doseq [plot (get-plots chart)] 
+      (.addRangeMarker plot idx marker layer))
     marker))
 
-(defmulti add-domain-interval-marker 
-  "Add new domain marker for an interval. Returns newly created marker."
-  (fn [x & _] (class x)))
-
-(defmethod add-domain-interval-marker XYPlot [plot x y label]
+(defn add-domain-interval-marker [chart x y label]
   (let [marker (doto (IntervalMarker. x y) 
                  (.setLabel label) 
-                 (.setPaint (Color. 233  194  166)))] 
-    (.addDomainMarker plot marker org.jfree.ui.Layer/BACKGROUND)
+                 (.setPaint (Color. 233  194  166)))]
+    (doseq [plot (get-plots chart)]
+      (.addDomainMarker plot marker org.jfree.ui.Layer/BACKGROUND))    
     marker))
 
-(defmethod add-domain-interval-marker JFreeChart [chart x y label]
-  (add-domain-interval-marker (.getPlot chart) x y label))
-
-(defmethod add-domain-interval-marker ChartPanel [chart x y label]
-  (add-domain-interval-marker (.. chart getChart getPlot) x y label)) 
-
-(defmethod add-domain-interval-marker ChartFrame [chart x y label]
-  (add-domain-interval-marker (.. chart getChartPanel getChart getPlot) x y label))
-
-(defmethod add-domain-interval-marker CombinedDomainXYPlot [plot x y label]
-  (doseq [p (.getSubplots plot)]
-    (add-domain-interval-marker p x y label)))
-
-(defmulti remove-domain-interval-marker (fn [x marker] (class x)))
-
-(defmethod remove-domain-interval-marker XYPlot [plot marker]
-  (.removeDomainMarker plot marker org.jfree.ui.Layer/BACKGROUND)
-  plot)
-
-(defmethod remove-domain-interval-marker JFreeChart [chart marker]
-  (remove-domain-interval-marker (.getPlot chart) marker)
+(defn remove-domain-interval-marker [chart marker]
+  (doseq [plot (get-plots chart)]
+    (.removeDomainMarker plot marker org.jfree.ui.Layer/BACKGROUND))
   chart)
-
-(defmethod remove-domain-interval-marker ChartPanel [chart marker]
-  (remove-domain-interval-marker (.. chart getChart getPlot) marker)
-  chart) 
-
-(defmethod remove-domain-interval-marker ChartFrame [chart marker]
-  (remove-domain-interval-marker (.. chart getChartPanel getChart getPlot) marker)
-  chart)
-
-(defmethod remove-domain-interval-marker CombinedDomainXYPlot [plot marker]
-  (doseq [p (.getSubplots plot)]
-    (remove-domain-interval-marker p marker))
-  plot)
- 
 
 (defn use-relative-time-axis 
   "Replace domain axis by relative date/time axis."
-  [plot]
+  [chart]
   (let [rdf  (doto (RelativeDateFormat. (long 0)) 
                (.setSecondFormatter (DecimalFormat. "00"))
                (.setShowZeroDays false))
         axis (doto (DateAxis.) (.setDateFormatOverride rdf))]
-    (.setDomainAxis plot axis)
-    plot))
+    (doseq [plot (get-plots chart)] 
+      (.setDomainAxis plot axis))
+    chart))
 
 (defn use-time-axis 
   "Use DateAxis. If a start- and end-hour are specified only these hours will be shown."
-  ([plot start-hour end-hour]
+  ([chart start-hour end-hour]
     (let [one-hour (* 60 60 1000)
           hours (- end-hour start-hour)
           timeline (doto (SegmentedTimeline. one-hour hours (- 24 hours))
                      (.setStartTime (+ (* start-hour one-hour) (SegmentedTimeline/firstMondayAfter1900))))
           axis (doto (DateAxis.) (.setTimeline timeline))]
-      (.setDomainAxis plot axis)
-      plot))
-  ([plot]
-    (.setDomainAxis plot (DateAxis.))
-    plot))
+      (doseq [plot (get-plots chart)]
+        (.setDomainAxis plot axis))
+      chart))
+  ([chart]
+    (doseq [plot (get-plots chart)]
+      (.setDomainAxis plot (DateAxis.)))
+    chart))
 
 (defn create-renderer
   "do not plot a line when at least 3 values are missing (for example during the night)" 
@@ -164,9 +115,6 @@ If no series index is given, do this for all series of the plot."
     (.setRenderer plot idx (create-renderer))
     plot))
 
-#_(defn add-deviation-plot [chart ys ylows yhighs]
-  ;; use deviationrenderer, yintervalseries
-  )
 (defn add-sub-title 
   "Add a subtitle to the chart."
   [chart text]
