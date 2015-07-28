@@ -28,9 +28,11 @@
   [c])
 (defmethod get-plots ChartPanel [^ChartPanel c]
   (get-plots (.getChart c)))
-
+(defmethod get-plots ChartFrame [^ChartFrame cf]
+  (get-plots (.getChartPanel cf)))
 (defmethod get-plots JFreeChart [^JFreeChart c]
   (get-plots (.getPlot c)))
+
 ;;;;;;;;;;;;;;;;;; Add and remove markers ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 
@@ -629,3 +631,44 @@ by avoiding `addOrUpdate`."
              x y))
       (.addSeries data-set data-series)
       chart)))
+
+(defn set-color 
+  "Set a java.awt.Color for each series with index `series-idx` in charts.
+Assumes that each renderer is responsible for one series only."
+  [chart series-idx color]
+  (doseq [^XYPlot plot (get-plots chart)
+          :let [renderer (.getRenderer plot series-idx)]]
+    (.setSeriesPaint renderer 0 color)
+    (.setLegendTextPaint renderer 0 color)))
+
+(defn- dataset-index [chart dataset]
+  (first (for [plot (get-plots chart)
+               :let [idx (some #(when (= (.. plot (getDataset %)) dataset) %) (range (.. plot getDatasetCount)))]
+               :when idx]
+           idx)))
+
+(defn add-mouse-listener 
+  "Toggle color of a line by clicking on it's legend entry."
+  [^org.jfree.chart.ChartPanel chart]
+  (let [state (atom {})
+        highlight-color java.awt.Color/MAGENTA
+        listener (reify org.jfree.chart.ChartMouseListener
+                   (chartMouseMoved [_ evt])
+                   (chartMouseClicked [_ evt]
+                     (let [entity (.getEntity evt)
+                           dataset (condp instance? entity  
+                                     org.jfree.chart.entity.XYItemEntity (.getDataset entity)
+                                     org.jfree.chart.entity.LegendItemEntity (.getDataset (.getEntity evt)))]
+                       (when dataset 
+                         (let [chart (.getChart evt)
+                               idx (dataset-index chart dataset)                             
+                               current-color (get @state idx)]
+                           (if current-color
+                             (do
+                               (swap! state dissoc idx) ;remove it
+                               (set-color chart idx current-color)) ; set stored color 
+                             (do
+                               (swap! state assoc idx (.. (first (get-plots chart)) (getRenderer idx) (getSeriesPaint 0)))
+                               (set-color chart idx highlight-color))))))))]
+    (.addChartMouseListener chart listener)
+    listener))
