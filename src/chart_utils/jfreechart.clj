@@ -597,8 +597,7 @@ by avoiding `addOrUpdate`."
           (.addSeries dataset ds))
           ;(set-theme chart theme)
           chart))))
-(comment
-  (defn polar-plot [angles values & {:keys [series-label title legend] 
+(defn polar-plot [angles values & {:keys [series-label title legend] 
                                    :or {series-label "values"
                                         title "Polar chart"
                                         legend false}}]
@@ -608,29 +607,11 @@ by avoiding `addOrUpdate`."
     (doseq [[angle value] (map vector angles values)]
       (.add series angle value false))
     (org.jfree.chart.ChartFactory/createPolarChart 
-      title
-      dataset
-      legend
-      false
-      false)))
-
-(defn simple-add-lines 
-  "Extracted and adjusted from incanter.charts"
-  [chart x y & options]
-     (let [opts (when options (apply assoc {} options))
-           data-plot (.getPlot chart)
-           n (.getDatasetCount data-plot)
-           series-lab (:series-label opts)
-           data-series (org.jfree.data.xy.XYSeries. series-lab (:auto-sort opts true))
-           data-set (.getDataset data-plot)]
-       (dorun
-        (map (fn [x y]
-               (if (and (not (nil? x))
-                        (not (nil? y)))
-                 (.add data-series (double x) (double y) false)))
-             x y))
-      (.addSeries data-set data-series)
-      chart)))
+     title
+     dataset
+     legend
+     false
+     false)))
 
 (defn set-color 
   "Set a java.awt.Color for each series with index `series-idx` in charts.
@@ -648,7 +629,7 @@ Assumes that each renderer is responsible for one series only."
            idx)))
 
 (defn add-mouse-listener 
-  "Toggle color of a line by clicking on it's legend entry."
+  "Toggle color of a line by clicking on it's legend entry or the line itself."
   [^org.jfree.chart.ChartPanel chart]
   (let [state (atom {})
         highlight-color java.awt.Color/MAGENTA
