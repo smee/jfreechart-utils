@@ -1,5 +1,4 @@
 (ns chart-utils.colors
-  (:require [chart-utils.jfreechart :as cjf])
   (:import java.awt.Color))
 
 (defn tripel2color [[^int r ^int g ^int b]]

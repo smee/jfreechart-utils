@@ -1,4 +1,5 @@
 (ns chart-utils.jfreechart
+  (:require [binning :refer [bin-fn]])
   (:import
     java.awt.Color
     [org.jfree.chart JFreeChart ChartPanel ChartFrame]
@@ -332,34 +333,7 @@ Like incanter.charts/sliders* but creates one frame that contains all sliders.
 						    :y-label y-lab#]))))]
        (apply heat-map* args#))))
 
-(defn bin-fn 
-  "Create a function that returns the interval that a value x falls in.
-Example:  
-    ((bin-fn 0 10 2) 5.5) 
-    => [4 6]"
-  [min max step] 
-  (fn [v] (let [bin-start (int (/ (- v min) step))] 
-            [(+ min (* bin-start step)) (+ min (* (inc bin-start) step))])))
 
-(defn bounded-bin-fn 
-  "Create a function that returns the interval that a value x falls in. If the value is out of bounds,
-returns the nearest valid bin.
-Example:  
-    ((bounded-bin-fn 0 10 2) 5.5) 
-    => [4 6]
-    ((bounded-bin-fn 0 10 2) -5) 
-    => [0 2]
-    ((bounded-bin-fn 0 10 2) 100) 
-    => [8 10]
-"
-  [minimum maximum step] 
-  {:pre [(every? number? [minimum maximum step]) 
-         (< minimum maximum)
-         (<= step (- maximum minimum))]} 
-  (let [supremum-bin (dec (int (/ (- maximum minimum) step)))] 
-    (fn [v] (let [bin-start (int (/ (- v minimum) step))
-                  bin-start (-> bin-start (max 0) (min supremum-bin))] 
-              [(+ minimum (* bin-start step)) (+ minimum (* (inc bin-start) step))]))))
 
 (defn- map-values 
   "Change all values or all keys and values by applying a function to each of them."
