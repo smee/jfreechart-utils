@@ -1,6 +1,6 @@
 (ns jfreechart
   (:use clojure.test
-        chart-utils.jfreechart))
+        binning))
 
 (deftest binning
   (are [min max width x lower upper] (is (= [lower upper] ((bin-fn min max width) x)))
