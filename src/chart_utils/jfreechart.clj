@@ -1,11 +1,12 @@
 (ns chart-utils.jfreechart
   (:require [binning :refer [bin-fn]])
   (:import
-    java.awt.Color
+   [java.awt Color]
     [org.jfree.chart JFreeChart ChartPanel ChartFrame]
+    [org.jfree.data.general Series]
     [org.jfree.data.xy 
      YIntervalSeries YIntervalSeriesCollection YIntervalDataItem
-     XYSeries XYSeriesCollection]
+     XYSeries XYSeriesCollection AbstractIntervalXYDataset]
     org.jfree.chart.axis.DateAxis
     org.jfree.chart.axis.SegmentedTimeline
     org.jfree.chart.plot.CombinedDomainXYPlot
@@ -181,8 +182,8 @@ Like incanter.charts/sliders* but creates one frame that contains all sliders.
       (doto frame
         (.setDefaultCloseOperation JFrame/DISPOSE_ON_CLOSE)
         (.add panel BorderLayout/CENTER)
-;        (.setSize width height)
-        (.pack) 
+        (.setSize width height)
+;        (.pack) 
         (.setVisible true))
       frame)))
 
@@ -449,28 +450,33 @@ For details please refer to `chart-utils.jfreechart/heat-map`"
 
 (defn- get-series
   "get-series"
-  ([chart]
-    (-> chart .getPlot .getDataset .getSeries))
+  ([chart] (get-series chart 0))
   ([chart series-idx]
-    (first (seq (-> chart
-                  .getPlot
-                  (.getDataset series-idx)
-                  .getSeries)))))
+   (let [ds (.. chart getPlot (getDataset series-idx))]
+     (cond
+       (instance? Series ds) ds
+       (instance? XYSeriesCollection ds) (nth (seq (.getSeries ds)) series-idx)
+       (instance? YIntervalSeriesCollection ds) (.getSeries ds series-idx)))))
 
 (defn perf-set-data 
   "Replace the data of a series without firing events for every single data point
 by avoiding `addOrUpdate`."
   [chart data series-idx]
-    (let [series (get-series chart series-idx)]
+  (let [series (get-series chart series-idx)]
        (.clear series)
        (cond
-         (= 2 (count (first data)))
-           (doseq [row data]
-             (.add series (first row) (second row) false))
-         (= 2 (count data))
-           (dorun (map #(.add series %1 %2 false) (first data) (second data)))
-         :else
-           (throw (Exception. "Data has wrong number of dimensions")))
+        (= 2 (count (first data)))
+          (doseq [row data]
+                 (.add series (first row) (second row) false))
+        (= 2 (count data))
+          (dorun (map #(.add series %1 %2 false) (first data) (second data)))
+        (and (instance? YIntervalSeries series)
+             (= 4 (count (first data))))
+        (doseq [[x y l u] data] (.add ^YIntervalSeries series (YIntervalDataItem. (double x) (double y) (double l) (double u)) false))
+        (and (instance? YIntervalSeries series)
+             (= 4 (count data)))
+          (perf-set-data chart (apply map vector data) series-idx )
+        :else (throw (Exception. "Data has wrong number of dimensions")))
        (.fireSeriesChanged series) 
        chart))
 
