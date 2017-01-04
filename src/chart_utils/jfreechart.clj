@@ -1,14 +1,15 @@
 (ns chart-utils.jfreechart
   (:require [binning :refer [bin-fn]])
   (:import
+   [java.io File]
+   [javax.imageio ImageIO]
    [java.awt Color]
-    [org.jfree.chart JFreeChart ChartPanel ChartFrame]
+    [org.jfree.chart JFreeChart ChartPanel ChartFrame ChartUtilities ChartTheme StandardChartTheme]
     [org.jfree.data.general Series]
     [org.jfree.data.xy 
      YIntervalSeries YIntervalSeriesCollection YIntervalDataItem
      XYSeries XYSeriesCollection AbstractIntervalXYDataset]
-    org.jfree.chart.axis.DateAxis
-    org.jfree.chart.axis.SegmentedTimeline
+    [org.jfree.chart.axis DateAxis LogAxis NumberAxis SegmentedTimeline]
     org.jfree.chart.plot.CombinedDomainXYPlot
     org.jfree.chart.plot.IntervalMarker
     org.jfree.chart.plot.ValueMarker
@@ -16,11 +17,14 @@
     [org.jfree.chart.renderer.xy StandardXYItemRenderer DeviationRenderer XYLineAndShapeRenderer]
     org.jfree.chart.util.RelativeDateFormat
     org.jfree.chart.plot.DefaultDrawingSupplier
+    [org.jfree.data.statistics HistogramDataset]
+    [org.jfree.data.category DefaultCategoryDataset]
     org.jfree.util.UnitType
     java.text.DecimalFormat
     [javax.swing JFrame JLabel JPanel JSlider BoxLayout]
     java.awt.BorderLayout))
 
+(load "from_incanter")
 (defmulti get-plots "Extract all instances of org.jfree.chart.XYPlot" class)
 
 (defmethod get-plots CombinedDomainXYPlot [^CombinedDomainXYPlot c]
@@ -432,21 +436,22 @@ For details please refer to `chart-utils.jfreechart/heat-map`"
 
 (defn map-to-axis 
   "Map dataseries to separate y axis. Reuses fonts, colors, paints from the first axis."
-  [chart series-idx axis-idx]
+  [chart series-idx axis-idx & {:keys [label]}]
   (let [p (.getPlot chart)
         a0 (.. p (getRangeAxis 0)) 
         axis-count (.getRangeAxisCount p)
-        axis (or (.getRangeAxis p axis-idx) (doto (org.jfree.chart.axis.NumberAxis.)
-                                              (.setLabelFont (.getLabelFont a0)) 
-                                              (.setTickLabelFont (.getTickLabelFont a0)) 
-                                              (.setLabelPaint (.getLabelPaint a0))
-                                              (.setAxisLinePaint (.getAxisLinePaint a0))
-                                              (.setTickLabelPaint (.getTickLabelPaint a0))))]
-    
-    (when (not= axis (.getRangeAxis p axis-idx)) 
-      (.setRangeAxis p axis-idx axis))
-    (.mapDatasetToRangeAxis p series-idx axis-idx)
-    chart))
+        axis (or (.getRangeAxis p axis-idx)
+                 (doto (org.jfree.chart.axis.NumberAxis.)
+                    (.setLabelFont (.getLabelFont a0)) 
+                    (.setTickLabelFont (.getTickLabelFont a0)) 
+                    (.setLabelPaint (.getLabelPaint a0))
+                    (.setAxisLinePaint (.getAxisLinePaint a0))
+                    (.setTickLabelPaint (.getTickLabelPaint a0))))]
+        (when label (.setLabel axis label))
+       (when (not= axis (.getRangeAxis p axis-idx)) 
+             (.setRangeAxis p axis-idx axis))
+       (.mapDatasetToRangeAxis p series-idx axis-idx)
+       chart))
 
 (defn- get-series
   "get-series"
@@ -455,7 +460,7 @@ For details please refer to `chart-utils.jfreechart/heat-map`"
    (let [ds (.. chart getPlot (getDataset series-idx))]
      (cond
        (instance? Series ds) ds
-       (instance? XYSeriesCollection ds) (nth (seq (.getSeries ds)) series-idx)
+       (instance? XYSeriesCollection ds) (first (seq (.getSeries ds)))
        (instance? YIntervalSeriesCollection ds) (.getSeries ds series-idx)))))
 
 (defn perf-set-data 
