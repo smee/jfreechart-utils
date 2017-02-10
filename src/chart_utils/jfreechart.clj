@@ -624,7 +624,8 @@ Assumes that each renderer is responsible for one series only."
                      (let [entity (.getEntity evt)
                            dataset (condp instance? entity  
                                      org.jfree.chart.entity.XYItemEntity (.getDataset entity)
-                                     org.jfree.chart.entity.LegendItemEntity (.getDataset (.getEntity evt)))]
+                                     org.jfree.chart.entity.LegendItemEntity (.getDataset (.getEntity evt))
+                                     nil)]
                        (when dataset 
                          (let [chart (.getChart evt)
                                idx (dataset-index chart dataset)                             
