@@ -13,6 +13,11 @@
         (.setVisible true))
       frame))
 
+(defn close [chart-frame]
+  (doto chart-frame
+    (.setVisible false)
+    (.dispose)))
+
 (defn save
 "From incanter https://github.com/incanter/incanter/blob/master/modules/incanter-charts/src/incanter/charts.clj#L3418"
   [chart filename & options]

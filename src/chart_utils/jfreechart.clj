@@ -78,6 +78,14 @@
     (.removeDomainMarker plot marker org.jfree.ui.Layer/BACKGROUND))
   chart)
 
+(defn clear-domain-markers [chart]
+  (doseq [plot (get-plots chart)]
+    (.clearDomainMarkers plot)))
+
+(defn clear-value-markers [chart]
+  (doseq [plot (get-plots chart)]
+    (.clearRangeMarkers plot)))
+
 (defn use-relative-time-axis 
   "Replace domain axis by relative date/time axis."
   [chart]
@@ -399,14 +407,13 @@ For details please refer to `chart-utils.jfreechart/heat-map`"
 
 (defn combined-domain-chart
   [charts & {:keys [keep-titles] :or {keep-titles true}}]
-  (let [plots (mapv (memfn getPlot) charts)
-        titles (mapv (memfn getTitle) charts)]
-    (if keep-titles
-      (doseq [chart charts 
-              :let [title (.getTitle chart)
-                    plot (.getPlot chart)]
-              :when title]
-        (.addAnnotation plot (org.jfree.chart.annotations.XYTitleAnnotation. 0.5 0.95 title))))
+  (when keep-titles
+    (doseq [chart charts 
+            :let [title (.getTitle chart)]
+            :when title
+            plot (get-plots chart)]
+           (.addAnnotation plot (org.jfree.chart.annotations.XYTitleAnnotation. 0.5 0.95 title))))
+  (let [plots (mapcat get-plots charts)]    
     (org.jfree.chart.JFreeChart. (apply combined-domain-plot plots))))
 
 (defn set-y-ranges 
