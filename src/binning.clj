@@ -44,8 +44,7 @@ Example:
   {:pre [(every? number? [minimum maximum step]) 
          (< minimum maximum)
          (<= step (- maximum minimum))]} 
-  (let [supremum-bin (dec (int (/ (- maximum minimum) step)))
-        idx-fn (bounded-bin-idx-fn minimum maximum step)] 
+  (let [idx-fn (bounded-bin-idx-fn minimum maximum step)] 
        (fn [^double v]
          (let [bin-start (idx-fn v) ] 
               [(+ minimum (* bin-start step)) (+ minimum (* (inc bin-start) step))]))))

@@ -614,6 +614,16 @@ Assumes that each renderer is responsible for one series only."
     (.setSeriesPaint renderer 0 color)
     (.setLegendTextPaint renderer 0 color)))
 
+#_(defn to-foreground [chart series-idx]
+  (doseq [^XYPlot plot (get-plots chart)
+          :let [n (.getDatasetCount plot)]
+          :when (>= n series-idx)
+          :let [old-last (.getDataset plot (dec n))
+                new-last (.getDataset plot series-idx)]] 
+    (.setDataset plot (dec n) new-last)
+    (.setDataset plot series-idx old-last)))
+
+
 (defn- dataset-index [chart dataset]
   (first (for [plot (get-plots chart)
                :let [idx (some #(when (= (.. plot (getDataset %)) dataset) %) (range (.. plot getDatasetCount)))]
@@ -643,6 +653,7 @@ Assumes that each renderer is responsible for one series only."
                                (set-color chart idx current-color)) ; set stored color 
                              (do
                                (swap! state assoc idx (.. (first (get-plots chart)) (getRenderer idx) (getSeriesPaint 0)))
-                               (set-color chart idx highlight-color))))))))]
+                               (set-color chart idx highlight-color)
+                               #_(to-foreground chart idx))))))))]
     (.addChartMouseListener chart listener)
     listener))

@@ -67,19 +67,23 @@ x is in [0,1], alpha should vary between -1 and 1, and a good range for beta is 
           (= last-idx idx) last-color
           :else (let [i (int idx)
                       i+1 (inc i)
-                      scaled-x (- x min (* i step))       
+                      scaled-x (/ (- x min (* i step)) step)       
                       [r1 g1 b1] (nth triples i)
                       [r2 g2 b2] (nth triples i+1)
                       delta-r (- r2 r1)
                       delta-g (- g2 g1)
-                      delta-b (- b2 b1)]
-                  (tripel2color [(int (+ r1 (* scaled-x delta-r)))
-                                 (int (+ g1 (* scaled-x delta-g)))
-                                 (int (+ b1 (* scaled-x delta-b)))])))))))
+                      delta-b (- b2 b1)
+                      red (int (+ r1 (* scaled-x delta-r)))
+                      green (int (+ g1 (* scaled-x delta-g)))
+                      blue (int (+ b1 (* scaled-x delta-b)))]
+                  (tripel2color [red
+                                 green
+                                 blue])))))))
 
 (defn divergence-colorscale
   "From 'brownblue' of http://www.mathworks.com/matlabcentral/fileexchange/17555-light-bartlein-color-maps"
   [min max]
+  {:pre [(> max min)]}
   (create-color-scale min max [[24 79 162]
                                [70 99 174]
                                [109 153 206]
@@ -91,6 +95,27 @@ x is in [0,1], alpha should vary between -1 and 1, and a good range for beta is 
                                [225 146 65]
                                [187 120 54]
                                [144 100 44]]))
+
+(defn divergence-colorscale-deadband
+  "Useful for divergences with a band of values within that should be deemphasized 
+(by scaling their values by 0.1). From 'brownblue' of http://www.mathworks.com/matlabcentral/fileexchange/17555-light-bartlein-color-maps"
+  [min max min-dead max-dead]
+  {:pre [(> min-dead min) (< max-dead max) (> max-dead min-dead)]}
+  (let [f (create-color-scale min max [[24 79 162]
+                                       [70 99 174]
+                                       [109 153 206]
+                                       [160 190 225]
+                                       [207 226 240]
+                                       [241 244 245]
+                                       [244 218 200]
+                                       [248 184 139]
+                                       [225 146 65]
+                                       [187 120 54]
+                                       [144 100 44]])]
+    (fn [x]
+      (if (<= min-dead x max-dead)
+        (f (/ x 10.0))
+        (f x)))))
 
 (defn same-brightness-rainbow 
   "Scale from https://mycarta.wordpress.com/2012/12/06/the-rainbow-is-deadlong-live-the-rainbow-part-5-cie-lab-linear-l-rainbow/
