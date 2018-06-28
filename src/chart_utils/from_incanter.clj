@@ -774,7 +774,6 @@
 (defmethod add-lines* org.jfree.data.xy.XYSeriesCollection
   ([chart x y & options]
      (let [opts (when options (apply assoc {} options))
-           data (:data opts)
            _x x
            _y y
            data-plot (.getPlot chart)
@@ -785,6 +784,34 @@
            line-renderer (XYLineAndShapeRenderer. true points?)
            ;; data-set (.getDataset data-plot)
            data-set (XYSeriesCollection.)]
+       (dorun
+        (map (fn [x y]
+               (if (and (not (nil? x))
+                        (not (nil? y)))
+                 (.add data-series (double x) (double y))))
+             _x _y))
+      (.addSeries data-set data-series)
+      (doto data-plot
+        (.setSeriesRenderingOrder org.jfree.chart.plot.SeriesRenderingOrder/FORWARD)
+        (.setDatasetRenderingOrder org.jfree.chart.plot.DatasetRenderingOrder/FORWARD)
+        (.setDataset n data-set)
+        (.setRenderer n line-renderer))
+      chart)))
+
+;; allow adding lines to heatmaps
+(defmethod add-lines* org.jfree.data.xy.DefaultXYZDataset 
+  ([chart x y & options]
+     (let [opts (when options (apply assoc {} options))
+           _x x
+           _y y
+           data-plot (.getPlot chart)
+           n (.getDatasetCount data-plot)
+           series-lab (or (:series-label opts) (format "%s, %s" 'x 'y))
+           data-series (org.jfree.data.xy.XYSeries. series-lab (:auto-sort opts true))
+           points? (true? (:points opts))
+           line-renderer (org.jfree.chart.renderer.xy.XYLineAndShapeRenderer. true points?)
+           ;; data-set (.getDataset data-plot)
+           data-set (org.jfree.data.xy.XYSeriesCollection.)]
        (dorun
         (map (fn [x y]
                (if (and (not (nil? x))

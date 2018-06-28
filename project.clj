@@ -1,8 +1,8 @@
-(defproject chart-utils "1.2.0-SNAPSHOT"
+(defproject chart-utils "1.2.2-SNAPSHOT"
   :description "FIXME: write description"
-  :dependencies [[org.clojure/clojure "1.6.0"]
-                 [org.jfree/jfreechart "1.0.19"
+  :dependencies [[org.clojure/clojure "1.9.0"]
+                 [org.jfree/jfreechart "1.5.0"
                   :exclusions [com.lowagie/itext
                                xml-apis]]
-                 [org.jzy3d/jzy3d-api "0.9.1"]]
-  :repositories [["jzy3d" "http://www.jzy3d.org/maven/releases"]])
+                 [org.jzy3d/jzy3d-api "1.0.2"]]
+  :repositories [["jzy3d" "http://maven.jzy3d.org/releases"]])

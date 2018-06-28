@@ -6,8 +6,9 @@ Example:
     ((bin-fn 0 10 2) 5.5) 
     => [4 6]"
   [min max step] 
-  (fn [v] (let [bin-start (int (/ (- v min) step))] 
-            [(+ min (* bin-start step)) (+ min (* (inc bin-start) step))])))
+  (fn [v]
+    (let [bin-start (int (/ (- v min) step))] 
+      [(+ min (* bin-start step)) (+ min (* (inc bin-start) step))])))
 
 (defn bounded-bin-idx-fn 
   "Create a function that returns the index of a bin that a value x falls in. If the value is out of bounds,

@@ -27,9 +27,6 @@
 (load "from_incanter")
 (defmulti get-plots "Extract all instances of org.jfree.chart.XYPlot" class)
 
-(defmethod get-plots CombinedDomainXYPlot [^CombinedDomainXYPlot c]
-  (mapcat get-plots (.getSubplots c)))
-
 (defmethod get-plots XYPlot [^XYPlot c]
   [c])
 (defmethod get-plots ChartPanel [^ChartPanel c]
@@ -38,6 +35,8 @@
   (get-plots (.getChartPanel cf)))
 (defmethod get-plots JFreeChart [^JFreeChart c]
   (get-plots (.getPlot c)))
+(defmethod get-plots CombinedDomainXYPlot [^CombinedDomainXYPlot c]
+  (mapcat get-plots (.getSubplots c)))
 
 ;;;;;;;;;;;;;;;;;; Add and remove markers ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -460,6 +459,7 @@ For details please refer to `chart-utils.jfreechart/heat-map`"
        (.mapDatasetToRangeAxis p series-idx axis-idx)
        chart))
 
+;; TODO use `get-plots`, ask each plot for number of series, then identify the correct one. This should enable updating combined-plots
 (defn- get-series
   "get-series"
   ([chart] (get-series chart 0))

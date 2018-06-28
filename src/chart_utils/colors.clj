@@ -1,5 +1,6 @@
 (ns chart-utils.colors
-  (:import java.awt.Color))
+  (:import java.awt.Color)
+  (:require [chart-utils.jfreechart :as cjf]))
 
 (defn tripel2color [[^int r ^int g ^int b]]
   (Color. r g b))
@@ -16,18 +17,17 @@ x is in [0,1], alpha should vary between -1 and 1, and a good range for beta is 
   (/ (Math/tanh (* beta (+ alpha (dec (* 2 x))))) beta))
 
 (comment
-  (use '[incanter core charts]) 
+  (require '[chart-utils.jfreechart :as cjf]) 
   (let [x (range 0 1.05 0.025)
-        chart (doto (incanter.charts/xy-plot x (repeat 0) :series-label "magnification" :legend true) 
-                (incanter.charts/add-lines x (repeat 0) :series-label "transformation")
-                incanter.core/view)] 
-    (sliders [alpha (range -2 2.025 0.025)
+        chart (doto (cjf/xy-plot x (repeat 0) :series-label "magnification" :legend true) 
+                (cjf/add-lines x (repeat 0) :series-label "transformation")
+                cjf/view)] 
+    (cjf/sliders [alpha (range -2 2.025 0.025)
               beta (range -5 5 0.1)]
              (let [t-min (transformation (apply min x) alpha beta)
                    t-max (transformation (apply max x) alpha beta)] 
-               (println [t-min t-max])
-               (incanter.core/set-data chart [x (map #(magnification % alpha beta) x)] 0)
-               (incanter.core/set-data chart [x (map #(/ (- (transformation % alpha beta) t-min) (- t-max t-min)) x)] 1))))
+                  (cjf/perf-set-data chart [x (map #(magnification % alpha beta) x)] 0)
+               (cjf/perf-set-data chart [x (map #(/ (- (transformation % alpha beta) t-min) (- t-max t-min)) x)] 1))))
   )
 
 ;;;;;;;;;;;;;;; for chart-utils.jfreechart/heat-map ;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -61,14 +61,14 @@ x is in [0,1], alpha should vary between -1 and 1, and a good range for beta is 
     (fn [x]
       (let [idx (->> (/ (- x min) step) 
                   (clojure.core/min last-idx)
-                  (clojure.core/max 0))]
+                  (clojure.core/max 0)
+                  int)]
         (cond
           (zero? idx) first-color
           (= last-idx idx) last-color
-          :else (let [i (int idx)
-                      i+1 (inc i)
-                      scaled-x (/ (- x min (* i step)) step)       
-                      [r1 g1 b1] (nth triples i)
+          :else (let [i+1 (inc idx)
+                      scaled-x (/ (- x min (* idx step)) step)       
+                      [r1 g1 b1] (nth triples idx)
                       [r2 g2 b2] (nth triples i+1)
                       delta-r (- r2 r1)
                       delta-g (- g2 g1)
@@ -83,7 +83,7 @@ x is in [0,1], alpha should vary between -1 and 1, and a good range for beta is 
 (defn divergence-colorscale
   "From 'brownblue' of http://www.mathworks.com/matlabcentral/fileexchange/17555-light-bartlein-color-maps"
   [min max]
-  {:pre [(> max min)]}
+  {:pre [(< min max)]}
   (create-color-scale min max [[24 79 162]
                                [70 99 174]
                                [109 153 206]
@@ -100,7 +100,7 @@ x is in [0,1], alpha should vary between -1 and 1, and a good range for beta is 
   "Useful for divergences with a band of values within that should be deemphasized 
 (by scaling their values by 0.1). From 'brownblue' of http://www.mathworks.com/matlabcentral/fileexchange/17555-light-bartlein-color-maps"
   [min max min-dead max-dead]
-  {:pre [(> min-dead min) (< max-dead max) (> max-dead min-dead)]}
+  {:pre [(< min min-dead max-dead max)]}
   (let [f (create-color-scale min max [[24 79 162]
                                        [70 99 174]
                                        [109 153 206]
