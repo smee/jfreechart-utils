@@ -465,7 +465,7 @@ For details please refer to `chart-utils.jfreechart/heat-map`"
                     (.setLabelPaint (.getLabelPaint a0))
                     (.setAxisLinePaint (.getAxisLinePaint a0))
                     (.setTickLabelPaint (.getTickLabelPaint a0))))]
-        (when label (.setLabel axis label))
+        (when label (.setLabel axis label))
        (when (not= axis (.getRangeAxis p axis-idx)) 
              (.setRangeAxis p axis-idx axis))
        (.mapDatasetToRangeAxis p series-idx axis-idx)
@@ -474,7 +474,7 @@ For details please refer to `chart-utils.jfreechart/heat-map`"
 ;; TODO use `get-plots`, ask each plot for number of series, then identify the correct one. This should enable updating combined-plots
 (defn- get-series
   "get-series"
-  ([chart] (get-series chart 0))
+  ([chart] (get-series chart 0))
   ([chart series-idx]
    (let [ds (.. chart getPlot (getDataset series-idx))]
      (cond
@@ -501,7 +501,7 @@ by avoiding `addOrUpdate`."
         (and (instance? YIntervalSeries series)
              (= 4 (count data)))
           (perf-set-data chart (apply map vector data) series-idx )
-        :else (throw (Exception. "Data has wrong number of dimensions")))
+        :else (throw (Exception. "Data has wrong number of dimensions")))
        (.fireSeriesChanged series) 
        chart))
 
