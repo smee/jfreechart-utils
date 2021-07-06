@@ -10,6 +10,8 @@
           frame (ChartFrame. window-title chart)]
       (doto frame
         (.setSize width height)
+        (.pack)
+        (.setLocationRelativeTo nil)
         (.setVisible true))
       frame))
 

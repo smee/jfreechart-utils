@@ -5,4 +5,4 @@
                   :exclusions [com.lowagie/itext
                                xml-apis]]
                  [org.jzy3d/jzy3d-api "1.0.2"]]
-  :repositories [["jzy3d" "http://maven.jzy3d.org/releases"]])
+  :repositories [["jzy3d" "https://maven.jzy3d.org/releases"]])

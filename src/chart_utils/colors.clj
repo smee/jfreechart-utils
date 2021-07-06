@@ -13,22 +13,29 @@ x is in [0,1], alpha should vary between -1 and 1, and a good range for beta is 
   [x alpha beta]
   (/ 1 (Math/pow (Math/cosh (* beta (+ alpha (dec (* 2 x))))) 2)))
 
-(defn transformation [x alpha beta]
-  (/ (Math/tanh (* beta (+ alpha (dec (* 2 x))))) beta))
+(defn transformation [x mu v]
+  (/ 1.0 (+ 1.0 (Math/pow (/ (* x (- 1.0 mu)) (* mu (- 1.0 x))) (- v)))))
 
-(comment
+(defn- scale-inverse [y mu v]
+  (let [f (* y (Math/pow (dec (/ 1.0 mu)) (- v)))]
+    (/ f (+ f (- y ) 1.0))))
+
+(comment (transformation 0.0 0.4 3.2)
   (require '[chart-utils.jfreechart :as cjf]) 
-  (let [x (range 0 1.05 0.025)
+  (let [step 0.025
+        x (range 0 (+ 1.0 step) step)
         chart (doto (cjf/xy-plot x (repeat 0) :series-label "magnification" :legend true) 
-                (cjf/add-lines x (repeat 0) :series-label "transformation")
+                    (cjf/add-lines x (repeat 0) :series-label "transformation")
+                    (cjf/add-lines x (repeat 0) :series-label "inverse transformation")
+                    (cjf/set-y-range 0 1)
                 cjf/view)] 
-    (cjf/sliders [alpha (range -2 2.025 0.025)
-              beta (range -5 5 0.1)]
-             (let [t-min (transformation (apply min x) alpha beta)
-                   t-max (transformation (apply max x) alpha beta)] 
-                  (cjf/perf-set-data chart [x (map #(magnification % alpha beta) x)] 0)
-               (cjf/perf-set-data chart [x (map #(/ (- (transformation % alpha beta) t-min) (- t-max t-min)) x)] 1))))
-  )
+       (cjf/sliders [alpha (range 0.0001 1 0.005)
+                     beta (range 0.0001 20 0.5)]
+                    (do
+                      (cjf/perf-set-data chart [x (map #(magnification % alpha beta) x)] 0)
+                      (cjf/perf-set-data chart [x (map #(transformation % alpha beta) x)] 1)
+                      (cjf/perf-set-data chart [x (map #(scale-inverse % alpha beta) x)] 2))))
+)
 
 ;;;;;;;;;;;;;;; for chart-utils.jfreechart/heat-map ;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defn create-color-scale-segments [& val-col-pairs]

@@ -14,7 +14,7 @@
     org.jfree.chart.plot.IntervalMarker
     org.jfree.chart.plot.ValueMarker
     org.jfree.chart.plot.XYPlot
-    [org.jfree.chart.renderer.xy StandardXYItemRenderer DeviationRenderer XYLineAndShapeRenderer]
+    [org.jfree.chart.renderer.xy StandardXYItemRenderer DeviationRenderer XYLineAndShapeRenderer XYStepRenderer]
     org.jfree.chart.util.RelativeDateFormat
     org.jfree.chart.plot.DefaultDrawingSupplier
     [org.jfree.data.statistics HistogramDataset]
@@ -130,6 +130,12 @@ If no series index is given, do this for all series of the plot."
     (.setRenderer plot idx (create-renderer))
     plot))
 
+(defn set-step-renderer
+  "Render horizontal lines per interval instead of connecting points linearly."
+  [chart n]
+  (doseq [plot (get-plots chart)]
+    (.setRenderer plot n (org.jfree.chart.renderer.xy.XYStepRenderer.))))
+
 (defn add-sub-title 
   "Add a subtitle to the chart."
   [chart text]
@@ -186,7 +192,7 @@ Like incanter.charts/sliders* but creates one frame that contains all sliders.
                    (map slider slider-fns slider-values))
           panel (JPanel.) 
           frame (JFrame. "Slider Control")
-          width 500
+          width 800
           height (* 70 (count slider-fns))]
       (.setLayout panel (BoxLayout. panel BoxLayout/Y_AXIS))
       (dorun (doseq [p panels] (.add panel p)))
@@ -194,7 +200,8 @@ Like incanter.charts/sliders* but creates one frame that contains all sliders.
         (.setDefaultCloseOperation JFrame/DISPOSE_ON_CLOSE)
         (.add panel BorderLayout/CENTER)
         (.setSize width height)
-;        (.pack) 
+        ;;(.pack)
+        (.setLocationRelativeTo nil)
         (.setVisible true))
       frame)))
 
@@ -415,12 +422,17 @@ For details please refer to `chart-utils.jfreechart/heat-map`"
   (let [plots (mapcat get-plots charts)]    
     (org.jfree.chart.JFreeChart. (apply combined-domain-plot plots))))
 
+(defn set-y-range [chart idx lower upper]
+  (let [plot (.. chart getPlot)]
+    (.. plot (getRangeAxis idx) (setRange lower upper))
+    chart))
+
 (defn set-y-ranges 
   "Set y range for all available y-axes."
   [chart lower upper]
   (let [plot (.. chart getPlot)] 
     (dotimes [i (.getRangeAxisCount plot)]
-      (.. plot getRangeAxis (setRange lower upper))))
+      (.. plot (getRangeAxis i) (setRange lower upper))))
   chart)
 
 (defn set-discontinuous [chart]
@@ -478,13 +490,14 @@ by avoiding `addOrUpdate`."
        (.clear series)
        (cond
         (= 2 (count (first data)))
-          (doseq [row data]
-                 (.add series (first row) (second row) false))
+          (doseq [[a b] data]
+                 (.add series a b false))
         (= 2 (count data))
           (dorun (map #(.add series %1 %2 false) (first data) (second data)))
         (and (instance? YIntervalSeries series)
              (= 4 (count (first data))))
-        (doseq [[x y l u] data] (.add ^YIntervalSeries series (YIntervalDataItem. (double x) (double y) (double l) (double u)) false))
+        (doseq [[x y l u] data]
+          (.add ^YIntervalSeries series (YIntervalDataItem. (double x) (double y) (double l) (double u)) false))
         (and (instance? YIntervalSeries series)
              (= 4 (count data)))
           (perf-set-data chart (apply map vector data) series-idx )
