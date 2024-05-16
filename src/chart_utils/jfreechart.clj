@@ -4,7 +4,8 @@
    [java.io File]
    [javax.imageio ImageIO]
    [java.awt Color]
-    [org.jfree.chart JFreeChart ChartPanel ChartFrame ChartUtilities ChartTheme StandardChartTheme]
+   [org.jfree.chart JFreeChart ChartPanel ChartFrame ChartUtilities ChartTheme StandardChartTheme]
+   [org.jfree.chart.axis AxisLocation]
     [org.jfree.data.general Series]
     [org.jfree.data.xy 
      YIntervalSeries YIntervalSeriesCollection YIntervalDataItem
@@ -155,14 +156,21 @@ Like incanter.charts/sliders* but returns the JSlider object only.
         label-txt (fn [v] (str (when slider-label (str slider-label " = ")) v))
         label (JLabel. (label-txt (first slider-values)) JLabel/CENTER)
         slider (doto (JSlider. JSlider/HORIZONTAL 0 max-idx 0)
-                 (.addChangeListener 
-                   (proxy [javax.swing.event.ChangeListener] []
-                     (stateChanged [^javax.swing.event.ChangeEvent event]
-                                   (let [source (.getSource event)
-                                         value (nth slider-values (.getValue source))]
+                     (.setMajorTickSpacing 1)
+                     (.setLabelTable (reduce (fn [d [idx v]] (doto d (.put (int idx) (JLabel. (str v)))))
+                                             (java.util.Hashtable.)
+                                             (map-indexed vector slider-values)))
+                     (.setPaintTicks true)
+                     (.setPaintLabels true)
+                     (.setSnapToTicks true)
+                     (.addChangeListener 
+                       (proxy [javax.swing.event.ChangeListener] []
+                              (stateChanged [^javax.swing.event.ChangeEvent event]
+                                (let [source (.getSource event)
+                                      value (nth slider-values (.getValue source))]
                                      (do
-                                       (.setText label (label-txt value))
-                                       (updater-fn value)))))))] 
+                                      (.setText label (label-txt value))
+                                      (updater-fn value)))))))] 
     ;(.setValue slider (/ max-idx 2))
     (doto (JPanel. (BorderLayout.))
       (.add label BorderLayout/NORTH)
@@ -454,7 +462,7 @@ For details please refer to `chart-utils.jfreechart/heat-map`"
 
 (defn map-to-axis 
   "Map dataseries to separate y axis. Reuses fonts, colors, paints from the first axis."
-  [chart series-idx axis-idx & {:keys [label]}]
+  [chart series-idx axis-idx & {:keys [label position]}]
   (let [p (.getPlot chart)
         a0 (.. p (getRangeAxis 0)) 
         axis-count (.getRangeAxisCount p)
@@ -464,11 +472,13 @@ For details please refer to `chart-utils.jfreechart/heat-map`"
                     (.setTickLabelFont (.getTickLabelFont a0)) 
                     (.setLabelPaint (.getLabelPaint a0))
                     (.setAxisLinePaint (.getAxisLinePaint a0))
-                    (.setTickLabelPaint (.getTickLabelPaint a0))))]
+                    (.setTickLabelPaint (.getTickLabelPaint a0))))
+        pos (if (even? axis-idx) AxisLocation/TOP_OR_LEFT AxisLocation/BOTTOM_OR_RIGHT)]
         (when label (.setLabel axis label))
        (when (not= axis (.getRangeAxis p axis-idx)) 
              (.setRangeAxis p axis-idx axis))
        (.mapDatasetToRangeAxis p series-idx axis-idx)
+       (.setRangeAxisLocation p axis-idx pos)
        chart))
 
 ;; TODO use `get-plots`, ask each plot for number of series, then identify the correct one. This should enable updating combined-plots
